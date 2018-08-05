@@ -16,3 +16,11 @@ should be possible to use this in conjunction with a tool such as [dgit](https:/
 or a git filesystem to update/merge/patch/push changes to GitHub while keeping track
 of the progress of the project.
 
+## Get Started - Plan 9 Port
+Install the latest plan9port. Run ghfs. Mount the filesystem with ```9 mount localhost:5640 <mount-point>```
+assuming the default tcp port 5640.
+
+## Authentication
+The filesystem uses not authentication with GitHub by default. The rate limit is much lower in this mode.
+You can generate a Personal Access Token in your Settings > Develper Settings screen. With a token you
+can provide it in the command-line with the ```-apitoken``` flag.
