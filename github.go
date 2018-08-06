@@ -37,6 +37,19 @@ Assignee: {{if .Assignee}} {{ .Assignee.Login }} {{end}}
 
 `))
 
+	repoMarkdown = template.Must(template.New("repository").Funcs(funcMap).Parse(
+		`# {{ .FullName }} {{ if .Parent }} [{{ .Parent.FullName }}] {{ end }}
+
+{{ .Description }}
+
+Watchers: {{ .WatchersCount }}
+Stars: {{ .StargazersCount }}
+Forks: {{ .ForksCount }}
+
+DefaultBranch: {{ .DefaultBranch }}
+Clone URL: {{ .CloneURL }}
+`))
+
 	ntype    = flag.String("ntype", "tcp4", "Default network type")
 	naddr    = flag.String("addr", ":5640", "Network address")
 	apitoken = flag.String("apitoken", "", "Personal API Token for authentication")
@@ -85,8 +98,8 @@ func main() {
 		log.Printf("Listing issues for repo %v/%v\n", owner, repo)
 
 		options := github.IssueListByRepoOptions{
-                        ListOptions: github.ListOptions{PerPage: 10},
-                }
+			ListOptions: github.ListOptions{PerPage: 10},
+		}
 
 		for {
 			issues, resp, err := client.Issues.ListByRepo(context.Background(), owner, repo, &options)
@@ -100,6 +113,16 @@ func main() {
 				err := issueMarkdown.Execute(&buf, *issue)
 				if err != nil {
 					return err
+				}
+
+				comments, _, err := client.Issues.ListComments(context.Background(), owner, repo, *issue.Number, nil)
+				for _, comment := range comments {
+					bb := bytes.Buffer{}
+					err := commentMarkdown.Execute(&bb, *comment)
+					if err != nil {
+						return err
+					}
+					buf.Write(bb.Bytes())
 				}
 
 				s.AddFileEntry(dynamic.NewFileEntry(childPath, &dynamic.StaticFileHandler{buf.Bytes()}))
@@ -119,8 +142,8 @@ func main() {
 		log.Printf("Listing repository for owner %v\n", child)
 
 		options := github.RepositoryListOptions{
-                        ListOptions: github.ListOptions{PerPage: 10},
-                }
+			ListOptions: github.ListOptions{PerPage: 10},
+		}
 
 		for {
 			repos, resp, err := client.Repositories.List(context.Background(), child, &options)
@@ -134,12 +157,15 @@ func main() {
 
 			for _, repo := range repos {
 				s.AddFileEntry(dynamic.NewFileEntry(path.Join(name, child, *repo.Name), dynamic.BasicDirHandler{}))
+				buf := bytes.Buffer{}
+				repoMarkdown.Execute(&buf, repo)
+				s.AddFileEntry(dynamic.NewFileEntry(path.Join(name, child, *repo.Name, "README.md"), &dynamic.StaticFileHandler{buf.Bytes()}))
 				s.AddFileEntry(dynamic.NewFileEntry(path.Join(name, child, *repo.Name, "issues"), dynamic.BasicDirHandler{nil, issueHandler}))
 			}
 
-                        if resp.NextPage == 0 {
-                                break
-                        }
+			if resp.NextPage == 0 {
+				break
+			}
 			options.Page = resp.NextPage
 		}
 
