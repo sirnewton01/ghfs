@@ -9,6 +9,46 @@ for ease of viewing or converting them into graphical formats for offline readin
 * Browse repositories by owner
 * Read open issues
 
+## Examples
+
+```
+$ ls /github/repos/sirnewton01
+
+9p-mdns				godev				plan9adapter
+Rest.ServiceProxy		godev-oracle			projectcreator
+dgit				gojazz				rpi-9front
+eclipse-filesystem-example	mdns				rtcdocker
+gdblib				ninep				society-tests
+ghfs				orion.client			ttf2plan9
+git				orion.server			xinu
+go				p9-tutorial
+godbg				plan9-font-hack
+
+$ cat /github/repos/sirnewton01/ghfs/README.md
+
+# sirnewton01/ghfs 
+
+9p GitHub filesystem written in Go for use with Plan 9/p9p
+
+Watchers: 1
+Stars: 1
+Forks: 0
+
+DefaultBranch: master
+Clone URL: https://github.com/sirnewton01/ghfs.git
+
+$ cat mnt/repos/sirnewton01/ghfs/issues/1.md
+
+# It is not clear which repos are forks and which are original (#1)
+
+State: open - sirnewton01 opened this issue 2018-08-06 02:29:11 +0000 UTC - 0 comments
+
+Assignee: 
+
+    The README.md in the repo directory doesn't show whether the project is a fork. If it is a fork it doesn't show the original repo.
+
+```
+
 ## End Goal
 Once in a stable state it should be possible to use the GitHub filesystem to manage all of
 your Plan 9 projects, create new ones, track issues and collaborate with other users. It
