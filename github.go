@@ -42,6 +42,9 @@ Assignee: {{if .Assignee}} {{ .Assignee.Login }} {{end}}
 
 {{ .Description }}
 
+Created: {{ .CreatedAt }}
+Pushed: {{ .PushedAt }}
+
 Watchers: {{ .WatchersCount }}
 Stars: {{ .StargazersCount }}
 Forks: {{ .ForksCount }}

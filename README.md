@@ -61,6 +61,6 @@ Install the latest plan9port. Run ghfs. Mount the filesystem with ```9 mount loc
 assuming the default tcp port 5640.
 
 ## Authentication
-The filesystem uses not authentication with GitHub by default. The rate limit is much lower in this mode.
+The filesystem uses no authentication with GitHub by default. The rate limit is much lower in this mode.
 You can generate a Personal Access Token in your Settings > Develper Settings screen. With a token you
 can provide it in the command-line with the ```-apitoken``` flag.
