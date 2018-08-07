@@ -22,7 +22,7 @@ var (
 	issueMarkdown = template.Must(template.New("issue").Funcs(funcMap).Parse(
 		`# {{ .Title  }} (#{{ .Number }})
 
-State: {{ .State }} - {{ .User.Login }} opened this issue {{ .CreatedAt }} - {{ .Comments }} comments
+State: {{ .State }} - [{{ .User.Login }}](../../../{{ .User.Login }}) opened this issue {{ .CreatedAt }} - {{ .Comments }} comments
 
 Assignee: {{if .Assignee}} [{{ .Assignee.Login }}](../../../{{ .Assignee.Login }}) {{else}} <Not Assigned> {{end}}
 
