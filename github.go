@@ -24,21 +24,21 @@ var (
 
 State: {{ .State }} - {{ .User.Login }} opened this issue {{ .CreatedAt }} - {{ .Comments }} comments
 
-Assignee: {{if .Assignee}} {{ .Assignee.Login }} {{end}}
+Assignee: {{if .Assignee}} [{{ .Assignee.Login }}](../../../{{ .Assignee.Login }}) {{else}} <Not Assigned> {{end}}
 
 {{ markdown .Body }}
 
 `))
 
 	commentMarkdown = template.Must(template.New("comment").Funcs(funcMap).Parse(
-		`## {{ .User.Login }} commented {{ .CreatedAt }} ({{ .AuthorAssociation }})
+		`## [{{ .User.Login }}](../../../{{ .User.Login }}) commented {{ .CreatedAt }} ({{ .AuthorAssociation }})
 
 {{ markdown .Body }}
 
 `))
 
 	repoMarkdown = template.Must(template.New("repository").Funcs(funcMap).Parse(
-		`# {{ .FullName }} {{ if .Parent }} [{{ .Parent.FullName }}] {{ end }}
+		`# {{ .FullName }} {{ if .GetFork }} [Forked] {{ end }}
 
 {{ .Description }}
 
@@ -49,8 +49,9 @@ Watchers: {{ .WatchersCount }}
 Stars: {{ .StargazersCount }}
 Forks: {{ .ForksCount }}
 
-DefaultBranch: {{ .DefaultBranch }}
-Clone URL: {{ .CloneURL }}
+Default branch: {{ .DefaultBranch }}
+
+git clone {{ .CloneURL }}
 `))
 
 	ntype    = flag.String("ntype", "tcp4", "Default network type")
@@ -161,7 +162,10 @@ func main() {
 			for _, repo := range repos {
 				s.AddFileEntry(dynamic.NewFileEntry(path.Join(name, child, *repo.Name), dynamic.BasicDirHandler{}))
 				buf := bytes.Buffer{}
-				repoMarkdown.Execute(&buf, repo)
+				err = repoMarkdown.Execute(&buf, repo)
+                                if err != nil {
+                                        return nil, err
+                                }
 				s.AddFileEntry(dynamic.NewFileEntry(path.Join(name, child, *repo.Name, "README.md"), &dynamic.StaticFileHandler{buf.Bytes()}))
 				s.AddFileEntry(dynamic.NewFileEntry(path.Join(name, child, *repo.Name, "issues"), dynamic.BasicDirHandler{nil, issueHandler}))
 			}
