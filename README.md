@@ -49,6 +49,8 @@ Assignee:
 
 ```
 
+![acme-screenshot](docs/screenshot-acme.png)
+
 ## End Goal
 Once in a stable state it should be possible to use the GitHub filesystem to manage all of
 your Plan 9 projects, create new ones, track issues and collaborate with other users. It
