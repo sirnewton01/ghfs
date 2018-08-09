@@ -6,12 +6,17 @@ package dynamic
 
 import (
 	"bytes"
+        "flag"
 	"fmt"
 	"path"
 	"strings"
 	"sync"
 
 	"github.com/Harvey-OS/ninep/protocol"
+)
+
+var (
+        debug = flag.Bool("debug", false, "Enable 9P debugging")
 )
 
 // A file handler defines the behaviour of one or more file entries
@@ -366,8 +371,8 @@ func NewServer(files []FileEntry, opts ...protocol.ServerOpt) (*protocol.Server,
 	f.files = append([]FileEntry{NewFileEntry("", &BasicDirHandler{f})}, f.files...)
 
 	var d protocol.NineServer = f
-	if *protocol.Debug {
-		d = &protocol.DebugServer{f}
+	if *debug {
+		d = &debugServer{f}
 	}
 	s, err := protocol.NewServer(d, opts...)
 	if err != nil {
