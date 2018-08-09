@@ -14,7 +14,7 @@ type StaticFileHandler struct {
 	Content []byte
 }
 
-func (f *StaticFileHandler) WalkChild(s *Server, name string, child string) (int, error) {
+func (f *StaticFileHandler) WalkChild(name string, child string) (int, error) {
 	return -1, fmt.Errorf("Children are not supported")
 }
 
@@ -22,7 +22,7 @@ func (f *StaticFileHandler) Open(name string, mode protocol.Mode) error {
 	return nil
 }
 
-func (f *StaticFileHandler) CreateChild(s *Server, name string, child string) (int, error) {
+func (f *StaticFileHandler) CreateChild(name string, child string) (int, error) {
 	return -1, fmt.Errorf("Creation is not supported")
 }
 
@@ -31,7 +31,7 @@ func (f *StaticFileHandler) Stat(name string) (protocol.QID, error) {
 	return protocol.QID{Version: 0, Type: protocol.QTFILE}, nil
 }
 
-func (f *StaticFileHandler) Length(s *Server, name string) (uint64, error) {
+func (f *StaticFileHandler) Length(name string) (uint64, error) {
 	return uint64(len(f.Content)), nil
 }
 
@@ -39,11 +39,11 @@ func (f *StaticFileHandler) Wstat(name string, qid protocol.QID, length uint64) 
 	return fmt.Errorf("Wstat is not supported")
 }
 
-func (f *StaticFileHandler) Remove(s *Server, name string) error {
+func (f *StaticFileHandler) Remove(name string) error {
 	return fmt.Errorf("Remove is not supported")
 }
 
-func (f *StaticFileHandler) Read(s *Server, name string, offset int64, count int64) ([]byte, error) {
+func (f *StaticFileHandler) Read(name string, offset int64, count int64) ([]byte, error) {
 	if offset >= int64(len(f.Content)) {
 		return []byte{}, nil // TODO should an error be returned?
 	}
@@ -55,6 +55,6 @@ func (f *StaticFileHandler) Read(s *Server, name string, offset int64, count int
 	return f.Content[offset : offset+count], nil
 }
 
-func (f *StaticFileHandler) Write(s *Server, name string, offset int64, buf []byte) (int64, error) {
+func (f *StaticFileHandler) Write(name string, offset int64, buf []byte) (int64, error) {
 	return 0, fmt.Errorf("Write is not supported")
 }

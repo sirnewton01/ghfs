@@ -13,25 +13,14 @@ import (
 //  entries to show its children. The handler
 //  does not support the creation of any children files.
 type BasicDirHandler struct {
-	DirEntryMiss      func(s *Server, name string, child string) (FileHandler, error)
-	ChildrenRequested func(s *Server, name string) error
+        S *Server
 }
 
-func (b BasicDirHandler) WalkChild(s *Server, name string, child string) (int, error) {
+func (b *BasicDirHandler) WalkChild(name string, child string) (int, error) {
 	if name == "" {
 		name = "/"
 	}
-	idx := s.MatchFile(func(f *FileEntry) bool { return f.name == path.Join(name, child) })
-	if idx == -1 && b.DirEntryMiss != nil {
-		newHandler, err := b.DirEntryMiss(s, name, child)
-		if err != nil {
-			return -1, err
-		}
-		newEntry := NewFileEntry(path.Join(name, child), newHandler)
-		newIdx := s.AddFileEntry(newEntry)
-		idx = newIdx
-	}
-
+	idx := b.S.MatchFile(func(f *FileEntry) bool { return f.name == path.Join(name, child) })
 	if idx == -1 {
 		return idx, fmt.Errorf("File not found: %v\n", child)
 	}
@@ -39,34 +28,27 @@ func (b BasicDirHandler) WalkChild(s *Server, name string, child string) (int, e
 	return idx, nil
 }
 
-func (b BasicDirHandler) Open(name string, mode protocol.Mode) error {
+func (b *BasicDirHandler) Open(name string, mode protocol.Mode) error {
 	return nil
 }
 
-func (b BasicDirHandler) CreateChild(s *Server, name string, child string) (int, error) {
+func (b *BasicDirHandler) CreateChild(name string, child string) (int, error) {
 	return -1, fmt.Errorf("Creation is not supported")
 }
 
-func (b BasicDirHandler) Stat(name string) (protocol.QID, error) {
+func (b *BasicDirHandler) Stat(name string) (protocol.QID, error) {
 	return protocol.QID{Version: 0, Type: protocol.QTDIR}, nil
 }
 
-func (b BasicDirHandler) getDir(s *Server, name string, length bool) ([]byte, error) {
-	if b.ChildrenRequested != nil {
-		err := b.ChildrenRequested(s, name)
-		if err != nil {
-			return []byte{}, err
-		}
-	}
-
-	matches := s.MatchFiles(func(f *FileEntry) bool {
+func (b *BasicDirHandler) getDir(name string, length bool) ([]byte, error) {
+	matches := b.S.MatchFiles(func(f *FileEntry) bool {
 		return strings.HasPrefix(f.name, name+"/") && strings.Count(name, "/") == strings.Count(f.name, "/")-1
 	})
 
 	var bb bytes.Buffer
 
 	for _, idx := range matches {
-		match := &s.files[idx]
+		match := &b.S.files[idx]
 
 		var b bytes.Buffer
 		dir := protocol.Dir{}
@@ -84,7 +66,7 @@ func (b BasicDirHandler) getDir(s *Server, name string, length bool) ([]byte, er
 		dir.Mode = uint32(m)
 
 		if length {
-			l, err := match.handler.Length(s, match.name)
+			l, err := match.handler.Length(match.name)
 			if err != nil {
 				return []byte{}, err
 			}
@@ -99,8 +81,8 @@ func (b BasicDirHandler) getDir(s *Server, name string, length bool) ([]byte, er
 	return bb.Bytes(), nil
 }
 
-func (b BasicDirHandler) Length(s *Server, name string) (uint64, error) {
-	contents, err := b.getDir(s, name, false)
+func (b *BasicDirHandler) Length(name string) (uint64, error) {
+	contents, err := b.getDir(name, false)
 	if err != nil {
 		return 0, err
 	}
@@ -108,16 +90,16 @@ func (b BasicDirHandler) Length(s *Server, name string) (uint64, error) {
 	return uint64(len(contents)), nil
 }
 
-func (b BasicDirHandler) Wstat(name string, qid protocol.QID, length uint64) error {
+func (b *BasicDirHandler) Wstat(name string, qid protocol.QID, length uint64) error {
 	return fmt.Errorf("Wstat is not supported")
 }
 
-func (b BasicDirHandler) Remove(s *Server, name string) error {
+func (b *BasicDirHandler) Remove(name string) error {
 	return fmt.Errorf("Remove is not supported")
 }
 
-func (b BasicDirHandler) Read(s *Server, name string, offset int64, count int64) ([]byte, error) {
-	content, err := b.getDir(s, name, true)
+func (b *BasicDirHandler) Read(name string, offset int64, count int64) ([]byte, error) {
+	content, err := b.getDir(name, true)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -133,6 +115,6 @@ func (b BasicDirHandler) Read(s *Server, name string, offset int64, count int64)
 	return content[offset : offset+count], nil
 }
 
-func (b BasicDirHandler) Write(s *Server, name string, offset int64, buf []byte) (int64, error) {
+func (b *BasicDirHandler) Write(name string, offset int64, buf []byte) (int64, error) {
 	return 0, fmt.Errorf("Write is not supported")
 }

@@ -16,15 +16,15 @@ import (
 
 // A file handler defines the behaviour of one or more file entries
 type FileHandler interface {
-	WalkChild(s *Server, name string, child string) (int, error)
+	WalkChild(name string, child string) (int, error)
 	Open(name string, mode protocol.Mode) error
-	CreateChild(s *Server, name string, child string) (int, error)
+	CreateChild(name string, child string) (int, error)
 	Stat(name string) (protocol.QID, error)
-	Length(s *Server, name string) (uint64, error)
+	Length(name string) (uint64, error)
 	Wstat(name string, qid protocol.QID, length uint64) error
-	Remove(s *Server, name string) error
-	Read(s *Server, name string, offset int64, count int64) ([]byte, error)
-	Write(s *Server, name string, offset int64, buf []byte) (int64, error)
+	Remove(name string) error
+	Read(name string, offset int64, count int64) ([]byte, error)
+	Write(name string, offset int64, buf []byte) (int64, error)
 }
 
 // A file entry is a location in the filesystem tree with a handler
@@ -115,13 +115,14 @@ func (s *Server) MatchFiles(matcher func(f *FileEntry) bool) []int {
 	return files
 }
 
-func (s *Server) AddFileEntry(newEntry FileEntry) int {
+func (s *Server) AddFileEntry(name string, handler FileHandler) int {
 	s.m.Lock()
 	defer s.m.Unlock()
+        newEntry := NewFileEntry(name, handler)
 
 	for idx := range s.files {
 		if s.files[idx].name == newEntry.name {
-			s.files[idx].handler = newEntry.handler
+			//s.files[idx].handler = newEntry.handler
 			return idx
 		}
 	}
@@ -191,7 +192,7 @@ func (s *Server) Rwalk(fid protocol.FID, newfid protocol.FID, paths []string) ([
 	q := make([]protocol.QID, len(paths))
 
 	for idx = range paths {
-		idx2, err := parent.handler.WalkChild(s, parent.name, paths[idx])
+		idx2, err := parent.handler.WalkChild(parent.name, paths[idx])
 		if err != nil {
 			return []protocol.QID{}, err
 		}
@@ -241,7 +242,7 @@ func (s *Server) Rcreate(fid protocol.FID, name string, perm protocol.Perm, mode
 	}
 
 	parent := s.files[idx]
-	idx, err := parent.handler.CreateChild(s, parent.name, name)
+	idx, err := parent.handler.CreateChild(parent.name, name)
 	if err != nil {
 		return protocol.QID{}, 0, err
 	}
@@ -288,7 +289,7 @@ func (s *Server) Rstat(fid protocol.FID) ([]byte, error) {
 		d.Mode = d.Mode | protocol.DMDIR
 	}
 
-	d.Length, err = f.handler.Length(s, f.name)
+	d.Length, err = f.handler.Length(f.name)
 	if err != nil {
 		return []byte{}, fmt.Errorf("File not found")
 	}
@@ -343,7 +344,7 @@ func (s *Server) Rread(fid protocol.FID, o protocol.Offset, c protocol.Count) ([
 	}
 
 	f := s.files[idx]
-	return f.handler.Read(s, f.name, int64(o), int64(c))
+	return f.handler.Read(f.name, int64(o), int64(c))
 }
 
 func (s *Server) Rwrite(fid protocol.FID, o protocol.Offset, b []byte) (protocol.Count, error) {
@@ -353,17 +354,16 @@ func (s *Server) Rwrite(fid protocol.FID, o protocol.Offset, b []byte) (protocol
 	}
 
 	f := s.files[idx]
-	c, err := f.handler.Write(s, f.name, int64(o), b)
+	c, err := f.handler.Write(f.name, int64(o), b)
 	return protocol.Count(c), err
 }
 
 type ServerOpt func(*protocol.Server) error
 
-func NewServer(files []FileEntry, opts ...protocol.ServerOpt) (*protocol.Server, error) {
+func NewServer(files []FileEntry, opts ...protocol.ServerOpt) (*protocol.Server, *Server, error) {
 	f := &Server{}
 	f.files = files
-
-	f.files = append([]FileEntry{NewFileEntry("", &BasicDirHandler{})}, f.files...)
+	f.files = append([]FileEntry{NewFileEntry("", &BasicDirHandler{f})}, f.files...)
 
 	var d protocol.NineServer = f
 	if *protocol.Debug {
@@ -371,8 +371,8 @@ func NewServer(files []FileEntry, opts ...protocol.ServerOpt) (*protocol.Server,
 	}
 	s, err := protocol.NewServer(d, opts...)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	f.iounit = 8192
-	return s, nil
+	return s, f, nil
 }
