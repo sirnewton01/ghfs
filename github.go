@@ -13,8 +13,9 @@ import (
 )
 
 var (
-	client  *github.Client
-	funcMap = map[string]interface{}{"markdown": markdown}
+	client      *github.Client
+	funcMap     = map[string]interface{}{"markdown": markdown}
+	currentUser string
 
 	ntype    = flag.String("ntype", "tcp4", "Default network type")
 	naddr    = flag.String("addr", ":5640", "Network address")
@@ -38,6 +39,11 @@ func main() {
 
 		tc := oauth2.NewClient(context.Background(), ts)
 		client = github.NewClient(tc)
+		cu, _, err := client.Users.Get(context.Background(), "")
+		if err != nil {
+			panic(err)
+		}
+		currentUser = *cu.Login
 	} else {
 		log.Printf("Using no authentication. Note that rate limits will apply.\n")
 		client = github.NewClient(nil)

@@ -86,6 +86,9 @@ func (rh *ReposHandler) Remove(name string) error {
 }
 
 func (rh *ReposHandler) Read(name string, offset int64, count int64) ([]byte, error) {
+	if offset == 0 && count > 0 && currentUser != "" {
+		rh.dirhandler.S.AddFileEntry(path.Join(name, currentUser), &OwnerHandler{&dynamic.BasicDirHandler{rh.dirhandler.S}})
+	}
 	return rh.dirhandler.Read(name, offset, count)
 }
 
