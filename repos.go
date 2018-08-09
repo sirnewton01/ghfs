@@ -50,13 +50,9 @@ func (rh *ReposHandler) WalkChild(name string, child string) (int, error) {
 			ListOptions: github.ListOptions{PerPage: 1},
 		}
 
-		repos, _, err := client.Repositories.List(context.Background(), child, &options)
+		_, _, err := client.Repositories.List(context.Background(), child, &options)
 		if err != nil {
 			return -1, err
-		}
-
-		if len(repos) == 0 {
-			return -1, nil
 		}
 
 		return rh.dirhandler.S.AddFileEntry(path.Join(name, child), &OwnerHandler{&dynamic.BasicDirHandler{rh.dirhandler.S}}), nil

@@ -9,8 +9,8 @@ import (
 	"github.com/sirnewton01/ghfs/dynamic"
 	"log"
 	"path"
-        "strconv"
-        "strings"
+	"strconv"
+	"strings"
 	"text/template"
 )
 
@@ -82,7 +82,7 @@ func (ih *IssuesHandler) addIssue(owner string, repo string, issue *github.Issue
 	}
 
 	ih.handler.S.AddFileEntry(childPath, &dynamic.StaticFileHandler{buf.Bytes()})
-        return nil
+	return nil
 }
 
 func (ih *IssuesHandler) refresh(owner string, repo string) error {
