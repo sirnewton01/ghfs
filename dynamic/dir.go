@@ -13,14 +13,14 @@ import (
 //  entries to show its children. The handler
 //  does not support the creation of any children files.
 type BasicDirHandler struct {
-        S *Server
+	S *Server
 }
 
 func (b *BasicDirHandler) WalkChild(name string, child string) (int, error) {
 	if name == "" {
 		name = "/"
 	}
-	idx := b.S.MatchFile(func(f *FileEntry) bool { return f.name == path.Join(name, child) })
+	idx := b.S.MatchFile(func(f *FileEntry) bool { return f.Name == path.Join(name, child) })
 	if idx == -1 {
 		return idx, fmt.Errorf("File not found: %v\n", child)
 	}
@@ -42,17 +42,17 @@ func (b *BasicDirHandler) Stat(name string) (protocol.QID, error) {
 
 func (b *BasicDirHandler) getDir(name string, length bool) ([]byte, error) {
 	matches := b.S.MatchFiles(func(f *FileEntry) bool {
-		return strings.HasPrefix(f.name, name+"/") && strings.Count(name, "/") == strings.Count(f.name, "/")-1
+		return strings.HasPrefix(f.Name, name+"/") && strings.Count(name, "/") == strings.Count(f.Name, "/")-1
 	})
 
 	var bb bytes.Buffer
 
 	for _, idx := range matches {
-		match := &b.S.files[idx]
+		match := &b.S.Files[idx]
 
 		var b bytes.Buffer
 		dir := protocol.Dir{}
-		qid, err := match.handler.Stat(match.name)
+		qid, err := match.Handler.Stat(match.Name)
 		if err != nil {
 			return []byte{}, err
 		}
@@ -66,13 +66,13 @@ func (b *BasicDirHandler) getDir(name string, length bool) ([]byte, error) {
 		dir.Mode = uint32(m)
 
 		if length {
-			l, err := match.handler.Length(match.name)
+			l, err := match.Handler.Length(match.Name)
 			if err != nil {
 				return []byte{}, err
 			}
 			dir.Length = l
 		}
-		dir.Name = path.Base(match.name)
+		dir.Name = path.Base(match.Name)
 
 		protocol.Marshaldir(&b, dir)
 		bb.Write(b.Bytes())

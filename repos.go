@@ -137,7 +137,7 @@ func (oh *OwnerHandler) refresh(owner string) error {
 			log.Printf("Adding repo %v\n", *repo.Name)
 			oh.dirhandler.S.AddFileEntry(path.Join("/repos", owner, *repo.Name), &dynamic.BasicDirHandler{oh.dirhandler.S})
 			oh.dirhandler.S.AddFileEntry(path.Join("/repos", owner, *repo.Name, "README.md"), &RepoOverviewHandler{filehandler: &dynamic.StaticFileHandler{[]byte{}}})
-			oh.dirhandler.S.AddFileEntry(path.Join("/repos", owner, *repo.Name, "issues"), &IssuesHandler{handler: &dynamic.BasicDirHandler{oh.dirhandler.S}})
+			NewIssuesHandler(oh.dirhandler.S, path.Join("/repos", owner, *repo.Name))
 		}
 
 		if resp.NextPage == 0 {
