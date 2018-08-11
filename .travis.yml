@@ -10,3 +10,5 @@ script:
     - pwd
     - diff -u <(echo -n) <(gofmt -d ./)
     - go test -v ./...
+    - GOOS=darwin go build
+    - GOOS=plan9 go build
