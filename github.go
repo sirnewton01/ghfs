@@ -4,11 +4,13 @@ import (
 	"context"
 	"flag"
 	"github.com/google/go-github/github"
+	"github.com/gregjones/httpcache"
 	"github.com/sirnewton01/ghfs/dynamic"
 	"golang.org/x/oauth2"
 	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"strings"
 )
 
@@ -32,21 +34,20 @@ func main() {
 	flag.Parse()
 
 	if *apitoken != "" {
-		log.Printf("Using Personal API Token for authentication.\n")
-		ts := oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: *apitoken},
-		)
+		log.Printf("Using Personal API Token for authentication. Caching is enabled.\n")
+		authTs := oauth2.Transport{Source: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: *apitoken})}
+		cacheTs := httpcache.NewMemoryCacheTransport()
+		cacheTs.Transport = &authTs
 
-		tc := oauth2.NewClient(context.Background(), ts)
-		client = github.NewClient(tc)
+		client = github.NewClient(&http.Client{Transport: cacheTs})
 		cu, _, err := client.Users.Get(context.Background(), "")
 		if err != nil {
 			panic(err)
 		}
 		currentUser = *cu.Login
 	} else {
-		log.Printf("Using no authentication. Note that rate limits will apply.\n")
-		client = github.NewClient(nil)
+		log.Printf("Using no authentication. Note that rate limits will apply. Caching is enabled.\n")
+		client = github.NewClient(httpcache.NewMemoryCacheTransport().Client())
 	}
 
 	if !*lognet {
