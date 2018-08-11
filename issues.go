@@ -23,6 +23,8 @@ State: {{ .State }} - [{{ .User.Login }}](../../../{{ .User.Login }}) opened thi
 
 Assignee: {{if .Assignee}} [{{ .Assignee.Login }}](../../../{{ .Assignee.Login }}) {{else}} Not Assigned {{end}}
 
+Labels: {{range .Labels}}{{.Name}} {{end}}
+
 {{ markdown .Body }}
 
 `))

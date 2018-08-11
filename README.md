@@ -1,5 +1,7 @@
 # GitHub File System
 
+![travis ci](https://api.travis-ci.org/sirnewton01/ghfs.svg?branch=master)
+
 With this filesystem you can use GitHub from the freedom of your favorite shell and text editor.
 In particular, you can use this to mount GitHub onto a Plan 9 system and use it to collaborate
 on projects with other Plan 9 users. Content is presented either in plain text or rich markdown

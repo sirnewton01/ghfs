@@ -69,21 +69,21 @@ Files are rendered in Markdown or even simple text so that you can interact with
 
 For each repo, the open issues are shown under "_ghfs_/repos/_owner_/_repo_/issues". In that directory there is a ctl file that you can modify to change the issue filters. The ctl file has a JSON structure like this:
 
-```
-{
-     "Milestone": "",  // Value is a milestone on the project
-     "State": "open", // Possible values are "open", "closed", "all"
-     "Assignee": "", // Value is any user id
-     "Creator": "", // Value is any user id
-     "Mentioned": "",
-     "Labels": null, // Value is JSON array of labels (e.g. ["label1", "label2"]
-     "Sort": "", // Ignored
-     "Direction": "", // Ignored
-     "Since": "0001-01-01T00:00:00Z", // Value is an ISO-8601 date
-     "Page": 8, // Ignored
-     "PerPage": 1 // Ignored
-}
-```
+
+    {
+         "Milestone": "",  // Value is a milestone on the project
+         "State": "open", // Possible values are "open", "closed", "all"
+         "Assignee": "", // Value is any user id
+         "Creator": "", // Value is any user id
+         "Mentioned": "",
+         "Labels": null, // Value is JSON array of labels (e.g. ["label1", "label2"]
+         "Sort": "", // Ignored
+         "Direction": "", // Ignored
+         "Since": "0001-01-01T00:00:00Z", // Value is an ISO-8601 date
+         "Page": 8, // Ignored
+         "PerPage": 1 // Ignored
+    }
+
 
 If you peek at the issues directory after modifying the ctl file the issues shown are the ones that match the filters.
 
