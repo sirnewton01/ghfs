@@ -88,6 +88,31 @@ func (rh *ReposHandler) Remove(name string) error {
 func (rh *ReposHandler) Read(name string, offset int64, count int64) ([]byte, error) {
 	if offset == 0 && count > 0 && currentUser != "" {
 		rh.dirhandler.S.AddFileEntry(path.Join(name, currentUser), &OwnerHandler{&dynamic.BasicDirHandler{rh.dirhandler.S}})
+
+		options := github.ListOptions{PerPage: 10}
+		// Add following
+		for {
+			users, resp, err := client.Users.ListFollowing(context.Background(), currentUser, &options)
+
+			if err != nil {
+				return []byte{}, err
+			}
+
+			if len(users) == 0 {
+				break
+			}
+
+			for _, user := range users {
+				log.Printf("Adding following %v\n", *user.Login)
+				rh.dirhandler.S.AddFileEntry(path.Join(name, *user.Login), &OwnerHandler{&dynamic.BasicDirHandler{rh.dirhandler.S}})
+			}
+
+			if resp.NextPage == 0 {
+				break
+			}
+			options.Page = resp.NextPage
+		}
+
 	}
 	return rh.dirhandler.Read(name, offset, count)
 }
