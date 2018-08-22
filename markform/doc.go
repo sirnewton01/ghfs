@@ -41,13 +41,11 @@ email the [support team](mailto:support@example.com).
 
 {{ markform . "Affiliations" }}
 
-{{ markform . "Description" }}
-
 {{ markform . "Education" }}
 
 Save this file to record any changes to the person record.
 
-`)
+`))
 
 */
 package markform

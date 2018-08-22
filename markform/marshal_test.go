@@ -1,7 +1,9 @@
 package markform
 
 import (
+	"bytes"
 	"testing"
+	"text/template"
 )
 
 func TestMarshal_Text(t *testing.T) {
@@ -121,5 +123,69 @@ func TestMarshal_List(t *testing.T) {
 	m = Marshal(v, "requiredList")
 	if "requiredList* = ,, value ,, ___" != m {
 		t.Errorf("Unexpected value %x\n", m)
+	}
+}
+
+func TestMarshalTemplate(t *testing.T) {
+	type Person struct {
+		Name         string   `* = ___[50]`           // text field maximum size 50
+		Gender       string   `* = () male () female` // one of the specified values
+		Student      bool     `* = []`                // true/false, checked/not
+		Affiliations []string ` = ,, ___`             // list of any values from the user
+		Description  string   ` = ___`                // Unbounded, maybe  multi-line string
+		Education    []string ` = [] elementary [] secondary [] post-secondary`
+	}
+
+	funcMap := map[string]interface{}{"markform": Marshal}
+
+	personTemplate := template.Must(template.New("person").Funcs(funcMap).Parse(
+
+		`# {{ markform . "Name" }} - Personal Information
+
+Please ensure that the information is entered correctly. If you have any
+questions you can email the [support team](mailto:support@example.com).
+
+{{ markform . "Description" }}
+
+{{ markform . "Gender" }}
+
+{{ markform . "Student" }}
+
+{{ markform . "Affiliations" }}
+
+{{ markform . "Education" }}
+
+Save this file to record any changes to the person record.
+
+`))
+
+	person := Person{Name: "John Doe", Gender: "male", Student: true, Affiliations: []string{"Chess Club"}, Description: "Conscientious student", Education: []string{"elementary", "secondary"}}
+	buf := bytes.Buffer{}
+	err := personTemplate.Execute(&buf, person)
+	if err != nil {
+		t.Error(err)
+	}
+
+	expected := `# Name* = John Doe___[50] - Personal Information
+
+Please ensure that the information is entered correctly. If you have any
+questions you can email the [support team](mailto:support@example.com).
+
+Description = Conscientious student___
+
+Gender* = (x) male () female
+
+Student* = [x]
+
+Affiliations = ,, Chess Club ,, ___
+
+Education = [x] elementary [x] secondary [] post-secondary
+
+Save this file to record any changes to the person record.
+
+`
+
+	if expected != string(buf.Bytes()) {
+		t.Errorf("Unexpected value: %s\n", buf.Bytes())
 	}
 }
