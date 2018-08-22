@@ -63,7 +63,7 @@ func Marshal(v interface{}, fn string) string {
 	} else if listPattern.MatchString(tag) {
 		components := listPattern.FindStringSubmatch(tag)
 		list := ""
-                length := reflect.ValueOf(v).FieldByName(fn).Len()
+		length := reflect.ValueOf(v).FieldByName(fn).Len()
 		for idx := 0; idx < length; idx++ {
 			value := reflect.ValueOf(v).FieldByName(fn).Index(idx).String()
 			list = list + " ,, " + value

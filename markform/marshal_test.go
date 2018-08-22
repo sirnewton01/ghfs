@@ -100,26 +100,26 @@ func TestMarshal_CheckBox(t *testing.T) {
 }
 
 func TestMarshal_List(t *testing.T) {
-        type astruct struct {
-                list []string ` = ,, ___`
-                requiredList []string `* = ,, ___`
-        }
+	type astruct struct {
+		list         []string ` = ,, ___`
+		requiredList []string `* = ,, ___`
+	}
 
-        v := astruct{list: []string {"value1", "another value", "something else"}}
-        m := Marshal(v, "list")
-        if "list = ,, value1 ,, another value ,, something else ,, ___" != m {
-                t.Errorf("Unexpected value %s\n", m)
-        }
+	v := astruct{list: []string{"value1", "another value", "something else"}}
+	m := Marshal(v, "list")
+	if "list = ,, value1 ,, another value ,, something else ,, ___" != m {
+		t.Errorf("Unexpected value %s\n", m)
+	}
 
-        v = astruct{list: nil}
-        m = Marshal(v, "list")
-        if "list = ,, ___" != m {
-                t.Errorf("Unexpected value %s\n", m)
-        }
+	v = astruct{list: nil}
+	m = Marshal(v, "list")
+	if "list = ,, ___" != m {
+		t.Errorf("Unexpected value %s\n", m)
+	}
 
-        v = astruct{requiredList: []string {"value"}}
-        m = Marshal(v, "requiredList")
-        if "requiredList* = ,, value ,, ___" != m {
-                t.Errorf("Unexpected value %x\n", m)
-        }
+	v = astruct{requiredList: []string{"value"}}
+	m = Marshal(v, "requiredList")
+	if "requiredList* = ,, value ,, ___" != m {
+		t.Errorf("Unexpected value %x\n", m)
+	}
 }
