@@ -11,8 +11,8 @@ import (
 var (
 	textPattern         = regexp.MustCompilePOSIX(`(\*?) = ___((\[([0-9]+)\])?)`)
 	boolCheckBoxPattern = regexp.MustCompile(`(\*??) = \[\]$`)
-	radioPattern        = regexp.MustCompile(`(\*??) = (\(\) .*)+`)
-	checkboxPattern     = regexp.MustCompile(`(\*??) = (\[\] .*)+`)
+	radioPattern        = regexp.MustCompile(`(\*??) = ((\(\) .*)+)`)
+	checkboxPattern     = regexp.MustCompile(`(\*??) = ((\[\] .*)+)`)
 	listPattern         = regexp.MustCompile(`(\*??) = ,, ___`)
 )
 

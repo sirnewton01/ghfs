@@ -46,6 +46,39 @@ func Unmarshal(mdInput []byte, v interface{}) error {
 						}
 						// TODO handle multi-line
 						fv.SetString(value)
+					} else if radioPattern.MatchString(string(f.Tag)) {
+						g := radioPattern.FindStringSubmatch(string(f.Tag))
+						options := strings.Split(g[2], "() ")
+						for _, option := range options {
+							option = strings.TrimRight(option, " ")
+							if option != "" && strings.Contains(value, "(x) "+option) {
+								fv.SetString(option)
+								break
+							}
+						}
+					} else if checkboxPattern.MatchString(string(f.Tag)) {
+						g := checkboxPattern.FindStringSubmatch(string(f.Tag))
+						options := strings.Split(g[2], "[] ")
+						fv.Set(reflect.MakeSlice(reflect.SliceOf(reflect.TypeOf("")), 0, 0))
+						for _, option := range options {
+							option = strings.TrimRight(option, " ")
+							if option != "" && strings.Contains(value, "[x] "+option) {
+								fv.Set(reflect.Append(fv, reflect.ValueOf(option)))
+							}
+						}
+					} else if listPattern.MatchString(string(f.Tag)) {
+						fv.Set(reflect.MakeSlice(reflect.SliceOf(reflect.TypeOf("")), 0, 0))
+						listitems := strings.Split(value, ",, ")
+						for _, listitem := range listitems {
+							if listitem == "" || listitem == "___" {
+								continue
+							}
+
+							// Trim the trailing space
+							listitem = listitem[:len(listitem)-1]
+
+							fv.Set(reflect.Append(fv, reflect.ValueOf(listitem)))
+						}
 					}
 				}
 			}

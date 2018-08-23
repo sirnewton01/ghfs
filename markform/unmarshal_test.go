@@ -51,4 +51,25 @@ Save this file to record any changes to the person record.
 	if person.Name != "John Doe" {
 		t.Errorf("Unexpected name: %s\n", person.Name)
 	}
+
+	if person.Gender != "male" {
+		t.Errorf("Unexpected gender: %s\n", person.Gender)
+	}
+
+	if len(person.Education) != 2 {
+		t.Errorf("Expected two education entries\n")
+	}
+	if person.Education[0] != "elementary" && person.Education[1] != "secondary" {
+		t.Errorf("Elementary not found in education: %v\n", person.Education)
+	}
+	if person.Education[0] != "secondary" && person.Education[1] != "secondary" {
+		t.Errorf("Secondary not found in education: %v\n", person.Education)
+	}
+
+	if len(person.Affiliations) != 1 {
+		t.Errorf("Expected one affiliation\n")
+	}
+	if person.Affiliations[0] != "Chess Club" {
+		t.Errorf("Unexpected affiliation: %v\n", person.Affiliations[0])
+	}
 }
