@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 	"text/template"
+	"time"
 )
 
 func TestMarshal_Text(t *testing.T) {
@@ -128,12 +129,13 @@ func TestMarshal_List(t *testing.T) {
 
 func TestMarshalTemplate(t *testing.T) {
 	type Person struct {
-		Name         string   `* = ___[50]`           // text field maximum size 50
-		Gender       string   `* = () male () female` // one of the specified values
-		Student      bool     `* = []`                // true/false, checked/not
-		Affiliations []string ` = ,, ___`             // list of any values from the user
-		Description  string   ` = ___`                // Unbounded, maybe  multi-line string
-		Education    []string ` = [] elementary [] secondary [] post-secondary`
+		Name         string    `* = ___[50]`           // text field maximum size 50
+		Gender       string    `* = () male () female` // one of the specified values
+		Student      bool      `* = []`                // true/false, checked/not
+		Affiliations []string  ` = ,, ___`             // list of any values from the user
+		Description  string    ` = ___`                // Unbounded, maybe  multi-line string
+		Education    []string  ` = [] elementary [] secondary [] post-secondary`
+		DateOfBirth  time.Time ` = 2006-01-02T15:04:05Z07:00`
 	}
 
 	funcMap := map[string]interface{}{"markform": Marshal}
@@ -155,13 +157,20 @@ questions you can email the [support team](mailto:support@example.com).
 
 {{ markform . "Education" }}
 
+{{ markform . "DateOfBirth" }}
+
 Save this file to record any changes to the person record.
 
 `))
 
-	person := Person{Name: "John Doe", Gender: "male", Student: true, Affiliations: []string{"Chess Club"}, Description: "Conscientious student", Education: []string{"elementary", "secondary"}}
+	dob, err := time.Parse(time.RFC3339, "2010-01-02T15:04:05Z")
+	if err != nil {
+		panic(err)
+	}
+
+	person := Person{Name: "John Doe", Gender: "male", Student: true, Affiliations: []string{"Chess Club"}, Description: "Conscientious student", Education: []string{"elementary", "secondary"}, DateOfBirth: dob}
 	buf := bytes.Buffer{}
-	err := personTemplate.Execute(&buf, person)
+	err = personTemplate.Execute(&buf, person)
 	if err != nil {
 		t.Error(err)
 	}
@@ -180,6 +189,8 @@ Student* = [x]
 Affiliations = ,, Chess Club ,, ___
 
 Education = [x] elementary [x] secondary [] post-secondary
+
+DateOfBirth = 2010-01-02T15:04:05Z
 
 Save this file to record any changes to the person record.
 

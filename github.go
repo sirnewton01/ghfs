@@ -6,6 +6,7 @@ import (
 	"github.com/google/go-github/github"
 	"github.com/gregjones/httpcache"
 	"github.com/sirnewton01/ghfs/dynamic"
+	"github.com/sirnewton01/ghfs/markform"
 	"golang.org/x/oauth2"
 	"io/ioutil"
 	"log"
@@ -16,13 +17,12 @@ import (
 
 var (
 	client      *github.Client
-	funcMap     = map[string]interface{}{"markdown": markdown}
+	funcMap     = map[string]interface{}{"markdown": markdown, "markform": markform.Marshal}
 	currentUser string
-
-	ntype    = flag.String("ntype", "tcp4", "Default network type")
-	naddr    = flag.String("addr", ":5640", "Network address")
-	apitoken = flag.String("apitoken", "", "Personal API Token for authentication")
-	lognet   = flag.Bool("lognet", false, "Log network requests")
+	ntype       = flag.String("ntype", "tcp4", "Default network type")
+	naddr       = flag.String("addr", ":5640", "Network address")
+	apitoken    = flag.String("apitoken", "", "Personal API Token for authentication")
+	lognet      = flag.Bool("lognet", false, "Log network requests")
 )
 
 func markdown(content string) string {

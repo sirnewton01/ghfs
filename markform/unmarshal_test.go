@@ -2,16 +2,18 @@ package markform
 
 import (
 	"testing"
+	"time"
 )
 
 func TestUnmarshalDocument(t *testing.T) {
 	type Person struct {
-		Name         string   `* = ___[50]`           // text field maximum size 50
-		Gender       string   `* = () male () female` // one of the specified values
-		Student      bool     `* = []`                // true/false, checked/not
-		Affiliations []string ` = ,, ___`             // list of any values from the user
-		Description  string   ` = ___`                // Unbounded, maybe  multi-line string
-		Education    []string ` = [] elementary [] secondary [] post-secondary`
+		Name         string    `* = ___[50]`           // text field maximum size 50
+		Gender       string    `* = () male () female` // one of the specified values
+		Student      bool      `* = []`                // true/false, checked/not
+		Affiliations []string  ` = ,, ___`             // list of any values from the user
+		Description  string    ` = ___`                // Unbounded, maybe  multi-line string
+		Education    []string  ` = [] elementary [] secondary [] post-secondary`
+		DateOfBirth  time.Time ` = 2006-01-02T15:04:05Z`
 	}
 
 	document :=
@@ -29,6 +31,8 @@ Student* = [x]
 Affiliations = ,, Chess Club ,, ___
 
 Education = [x] elementary [x] secondary [] post-secondary
+
+DateOfBirth = 2010-01-02T15:04:05Z
 
 Save this file to record any changes to the person record.
 
@@ -71,5 +75,9 @@ Save this file to record any changes to the person record.
 	}
 	if person.Affiliations[0] != "Chess Club" {
 		t.Errorf("Unexpected affiliation: %v\n", person.Affiliations[0])
+	}
+
+	if person.DateOfBirth.Format(time.RFC3339) != "2010-01-02T15:04:05Z" {
+		t.Errorf("Unexpected date of birth: %v\n", person.DateOfBirth)
 	}
 }

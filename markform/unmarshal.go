@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/russross/blackfriday.v2"
 )
@@ -25,6 +26,7 @@ func Unmarshal(mdInput []byte, v interface{}) error {
 				value := groups[3]
 				f, ok := t.FieldByName(fn)
 				if ok {
+					// TODO handle required fields
 					fv := reflect.Indirect(reflect.ValueOf(v)).FieldByName(fn)
 					if boolCheckBoxPattern.MatchString(string(f.Tag)) {
 						if strings.HasPrefix(value, "[x]") {
@@ -78,6 +80,12 @@ func Unmarshal(mdInput []byte, v interface{}) error {
 							listitem = listitem[:len(listitem)-1]
 
 							fv.Set(reflect.Append(fv, reflect.ValueOf(listitem)))
+						}
+					} else if timePattern.MatchString(string(f.Tag)) {
+						value = strings.Trim(value, " ")
+						t, err := time.Parse(time.RFC3339, value)
+						if err == nil {
+							fv.Set(reflect.ValueOf(t))
 						}
 					}
 				}

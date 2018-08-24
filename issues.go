@@ -3,16 +3,17 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/Harvey-OS/ninep/protocol"
 	"github.com/google/go-github/github"
 	"github.com/sirnewton01/ghfs/dynamic"
+	"github.com/sirnewton01/ghfs/markform"
 	"log"
 	"path"
 	"strconv"
 	"strings"
 	"text/template"
+	"time"
 )
 
 var (
@@ -35,7 +36,41 @@ Labels: {{range .Labels}}{{.Name}} {{end}}
 {{ markdown .Body }}
 
 `))
+
+	issueFilterMarkdown = template.Must(template.New("issueFilter").Funcs(funcMap).Parse(
+		`# Filters
+
+Use these filters to control the issues that are shown in this directory. This file
+uses restful markdown. See the README.md at the top level of this filesystem
+for more details on how to work with the format.
+
+{{ markform . "Milestone" }}
+
+{{ markform . "State" }}
+
+{{ markform . "Assignee" }}
+
+{{ markform . "Creator" }}
+
+{{ markform . "Mentioned" }}
+
+Commonly used labels include bug, enhancement and task.
+
+{{ markform . "Labels" }}
+
+{{ markform . "Since" }}
+`))
 )
+
+type IssuesFilter struct {
+	Milestone string    ` = ___`
+	State     string    ` = () open () closed () all`
+	Assignee  string    ` = ___`
+	Creator   string    ` = ___`
+	Mentioned string    ` = ___`
+	Labels    []string  ` = ,, ___`
+	Since     time.Time ` = 2006-01-02T15:04:05Z`
+}
 
 type IssuesHandler struct {
 	handler *dynamic.BasicDirHandler
@@ -215,8 +250,15 @@ func NewIssuesCtl(server *dynamic.Server, issuesPath string, ih *IssuesHandler) 
 	handler := &IssuesCtl{ih, &bytes.Buffer{}, &bytes.Buffer{}}
 	server.AddFileEntry(path.Join(issuesPath, "ctl"), handler)
 
-	contents, _ := json.MarshalIndent(handler.ih.options, "", "     ")
-	handler.readbuf.Write(contents)
+	isf := IssuesFilter{}
+	isf.Mentioned = handler.ih.options.Mentioned
+	isf.State = handler.ih.options.State
+	isf.Assignee = handler.ih.options.Assignee
+	isf.Creator = handler.ih.options.Creator
+	isf.Labels = handler.ih.options.Labels
+	isf.Since = handler.ih.options.Since
+
+	issueFilterMarkdown.Execute(handler.readbuf, isf)
 }
 
 func (ic *IssuesCtl) WalkChild(name string, child string) (int, error) {
@@ -227,8 +269,15 @@ func (ic *IssuesCtl) Open(name string, mode protocol.Mode) error {
 	ic.readbuf = &bytes.Buffer{}
 	ic.writebuf = &bytes.Buffer{}
 
-	contents, _ := json.MarshalIndent(ic.ih.options, "", "     ")
-	ic.readbuf.Write(contents)
+	isf := IssuesFilter{}
+	isf.Mentioned = ic.ih.options.Mentioned
+	isf.State = ic.ih.options.State
+	isf.Assignee = ic.ih.options.Assignee
+	isf.Creator = ic.ih.options.Creator
+	isf.Labels = ic.ih.options.Labels
+	isf.Since = ic.ih.options.Since
+
+	issueFilterMarkdown.Execute(ic.readbuf, isf)
 
 	return nil
 }
@@ -276,10 +325,19 @@ func (ic *IssuesCtl) Write(name string, offset int64, buf []byte) (int64, error)
 	}
 
 	// TODO handle multiple writes for the entire file
-	err = json.Unmarshal(ic.writebuf.Bytes(), ic.ih.options)
+	isf := IssuesFilter{}
+	err = markform.Unmarshal(ic.writebuf.Bytes(), &isf)
 	if err != nil {
 		return int64(length), err
 	}
+
+	ic.ih.options.Milestone = isf.Milestone
+	ic.ih.options.State = isf.State
+	ic.ih.options.Assignee = isf.Assignee
+	ic.ih.options.Creator = isf.Creator
+	ic.ih.options.Mentioned = isf.Mentioned
+	ic.ih.options.Labels = isf.Labels
+	ic.ih.options.Since = isf.Since
 
 	err = ic.ih.refresh(path.Base(path.Dir(path.Dir(path.Dir(name)))), path.Base(path.Dir(path.Dir(name))))
 

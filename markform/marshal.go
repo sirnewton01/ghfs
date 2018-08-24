@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -14,6 +15,7 @@ var (
 	radioPattern        = regexp.MustCompile(`(\*??) = ((\(\) .*)+)`)
 	checkboxPattern     = regexp.MustCompile(`(\*??) = ((\[\] .*)+)`)
 	listPattern         = regexp.MustCompile(`(\*??) = ,, ___`)
+	timePattern         = regexp.MustCompile(`(\*??) = 2006-01-02T15:04:05Z`)
 )
 
 // Marshal a specified field from a struct
@@ -71,6 +73,10 @@ func Marshal(v interface{}, fn string) string {
 		list = list + " ,, ___"
 
 		return fmt.Sprintf("%s%s =%s", fn, components[1], list)
+	} else if timePattern.MatchString(tag) {
+		components := timePattern.FindStringSubmatch(tag)
+		t := reflect.ValueOf(v).FieldByName(fn).Interface().(time.Time)
+		return fmt.Sprintf("%s%s = %s", fn, components[1], t.Format(time.RFC3339))
 	}
 
 	return ""
