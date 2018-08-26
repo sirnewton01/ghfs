@@ -55,7 +55,7 @@ func (rh *ReposHandler) WalkChild(name string, child string) (int, error) {
 			return -1, err
 		}
 
-		return rh.dirhandler.S.AddFileEntry(path.Join(name, child), &OwnerHandler{&dynamic.BasicDirHandler{rh.dirhandler.S}}), nil
+		return rh.dirhandler.S.AddFileEntry(path.Join(name, child), &OwnerHandler{&dynamic.BasicDirHandler{rh.dirhandler.S, nil}}), nil
 	}
 
 	return idx, err
@@ -87,7 +87,7 @@ func (rh *ReposHandler) Remove(name string) error {
 
 func (rh *ReposHandler) Read(name string, offset int64, count int64) ([]byte, error) {
 	if offset == 0 && count > 0 && currentUser != "" {
-		rh.dirhandler.S.AddFileEntry(path.Join(name, currentUser), &OwnerHandler{&dynamic.BasicDirHandler{rh.dirhandler.S}})
+		rh.dirhandler.S.AddFileEntry(path.Join(name, currentUser), &OwnerHandler{&dynamic.BasicDirHandler{rh.dirhandler.S, nil}})
 
 		options := github.ListOptions{PerPage: 10}
 		// Add following
@@ -104,7 +104,7 @@ func (rh *ReposHandler) Read(name string, offset int64, count int64) ([]byte, er
 
 			for _, user := range users {
 				log.Printf("Adding following %v\n", *user.Login)
-				rh.dirhandler.S.AddFileEntry(path.Join(name, *user.Login), &OwnerHandler{&dynamic.BasicDirHandler{rh.dirhandler.S}})
+				rh.dirhandler.S.AddFileEntry(path.Join(name, *user.Login), &OwnerHandler{&dynamic.BasicDirHandler{rh.dirhandler.S, nil}})
 			}
 
 			if resp.NextPage == 0 {
@@ -160,7 +160,7 @@ func (oh *OwnerHandler) refresh(owner string) error {
 
 		for _, repo := range repos {
 			log.Printf("Adding repo %v\n", *repo.Name)
-			oh.dirhandler.S.AddFileEntry(path.Join("/repos", owner, *repo.Name), &dynamic.BasicDirHandler{oh.dirhandler.S})
+			oh.dirhandler.S.AddFileEntry(path.Join("/repos", owner, *repo.Name), &dynamic.BasicDirHandler{oh.dirhandler.S, nil})
 			oh.dirhandler.S.AddFileEntry(path.Join("/repos", owner, *repo.Name, "repo.md"), &RepoOverviewHandler{filehandler: &dynamic.StaticFileHandler{[]byte{}}})
 			NewIssuesHandler(oh.dirhandler.S, path.Join("/repos", owner, *repo.Name))
 		}

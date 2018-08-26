@@ -68,31 +68,70 @@ Welcome to a file system view of GitHub. Using the site is easy once you learn a
 
 Files are rendered in Markdown or even simple text so that you can interact with it using simple text editors.
 
-For each repo, the open issues are shown under "_ghfs_/repos/_owner_/_repo_/issues". In that directory there is a ctl file that you can modify to change the issue filters. The ctl file has a JSON structure like this:
+For each repo, the open issues are shown under "_ghfs_/repos/_owner_/_repo_/issues". In that directory there is a
+filter.md file that you can modify to change the issue filters. When you refresh the directory listing only the
+issues matching the filter are shown.
 
+## Markform
 
-    {
-         "Milestone": "",  // Value is a milestone on the project
-         "State": "open", // Possible values are "open", "closed", "all"
-         "Assignee": "", // Value is any user id
-         "Creator": "", // Value is any user id
-         "Mentioned": "",
-         "Labels": null, // Value is JSON array of labels (e.g. ["label1", "label2"]
-         "Sort": "", // Ignored
-         "Direction": "", // Ignored
-         "Since": "0001-01-01T00:00:00Z", // Value is an ISO-8601 date
-         "Page": 8, // Ignored
-         "PerPage": 1 // Ignored
-    }
+Various files are modifiable using "markform", which is a format built on top of markdown for highlighting
+portions of a file that you can modify to perform certain actions, such as making a comment, changing the owner of
+an issues filter, etc. When you make the change and save the file the system takes the necessary actions based
+on what you entered or changed in the highlighted regions.
 
+Markform has a number of different controls, such as text, checkbox, radio and list. Here is an example of a
+text field.
 
-If you peek at the issues directory after modifying the ctl file the issues shown are the ones that match the filters.
+Description = ___
 
-Happy browsing!
+The presence of a paragraph with an equal sign indicates that this is a form control. The three underscores
+signify that the type of control is text. You can start writing the description by putting your cursor before
+the underscores and type out your description. You do not need to remove the underscores. In fact, the underscores
+tell the system where your description ends. Also, markform is optimized for editing and tries to avoid any
+excess typing, such as the delete key, or extra cursor tricks. You can just place your cursor and type!
+
+Description = Here is my excellent description!___
+
+This is a simple check box example.
+
+Student = []
+
+Just put a lower case x inside the square braces and that's it!
+
+Student = [x]
+
+Radios are much the same except that there are labels for each option. The default option is sometimes
+pre-checked with an "x."
+
+Education = (x) elementary () high school () post-secondary
+
+Delete the x from the default and put it in the option that you want.
+
+Education = () elementary (x) hig school () post-secondary
+
+There are also check box groups, which work much the same as the radios except that you can put an "x"
+on all of the options you want or remove them the ones you don't want.
+
+Lists look something like this.
+
+Labels = ,, ___
+
+You can add your own values like this, preserving the template at the end.
+
+Labels = ,, enhancement ,, ___
+
+Date fields are shown in an RFC3339 (or ISO-8601) format that you can modify to specify the date that you
+would like.
+
+StartDate = 2010-01-02T15:04:05Z
+
+That's about all there is to know about markform. The format is designed to be readable, make it clear
+the expected format and make it easy to modify.
+
 `)}),
 		})
 
-	d.AddFileEntry("/repos", &ReposHandler{&dynamic.BasicDirHandler{d}})
+	d.AddFileEntry("/repos", &ReposHandler{&dynamic.BasicDirHandler{d, nil}})
 
 	if err := s.Serve(ln); err != nil {
 		log.Fatal(err)

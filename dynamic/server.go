@@ -76,7 +76,7 @@ func (fe *FileEntry) hasFid(fid protocol.FID) bool {
 
 // A server
 type Server struct {
-	Files  []FileEntry
+	files  []FileEntry
 	iounit int
 	m      sync.Mutex
 }
@@ -92,8 +92,8 @@ func (s *Server) MatchFile(matcher func(f *FileEntry) bool) int {
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	for idx := range s.Files {
-		if matcher(&s.Files[idx]) {
+	for idx := range s.files {
+		if matcher(&s.files[idx]) {
 			return idx
 		}
 	}
@@ -107,8 +107,8 @@ func (s *Server) MatchFiles(matcher func(f *FileEntry) bool) []int {
 
 	files := []int{}
 
-	for idx := range s.Files {
-		if matcher(&s.Files[idx]) {
+	for idx := range s.files {
+		if matcher(&s.files[idx]) {
 			files = append(files, idx)
 		}
 	}
@@ -121,15 +121,15 @@ func (s *Server) AddFileEntry(name string, handler FileHandler) int {
 	defer s.m.Unlock()
 	newEntry := NewFileEntry(name, handler)
 
-	for idx := range s.Files {
-		if s.Files[idx].Name == newEntry.Name {
-			//s.Files[idx].Handler = newEntry.Handler
+	for idx := range s.files {
+		if s.files[idx].Name == newEntry.Name {
+			//s.files[idx].Handler = newEntry.Handler
 			return idx
 		}
 	}
 
-	s.Files = append(s.Files, newEntry)
-	return len(s.Files) - 1
+	s.files = append(s.files, newEntry)
+	return len(s.files) - 1
 
 }
 
@@ -137,8 +137,8 @@ func (s *Server) HasChildren(name string) bool {
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	for idx := range s.Files {
-		if strings.HasPrefix(s.Files[idx].Name, name+"/") {
+	for idx := range s.files {
+		if strings.HasPrefix(s.files[idx].Name, name+"/") {
 			return true
 		}
 	}
@@ -157,9 +157,9 @@ func (s *Server) Rattach(fid protocol.FID, afid protocol.FID, uname string, anam
 	}
 
 	// Register this new FID for this entry
-	s.Files[idx].addFid(fid)
+	s.files[idx].addFid(fid)
 
-	qid, err := s.Files[idx].Handler.Stat(aname)
+	qid, err := s.files[idx].Handler.Stat(aname)
 	if err != nil {
 		return protocol.QID{}, err
 	}
@@ -180,7 +180,7 @@ func (s *Server) Rwalk(fid protocol.FID, newfid protocol.FID, paths []string) ([
 		return []protocol.QID{}, fmt.Errorf("File not found")
 	}
 
-	parent := &s.Files[idx]
+	parent := &s.files[idx]
 	if len(paths) == 0 {
 		parent.addFid(newfid)
 		return []protocol.QID{}, nil
@@ -198,7 +198,7 @@ func (s *Server) Rwalk(fid protocol.FID, newfid protocol.FID, paths []string) ([
 			return []protocol.QID{}, err
 		}
 
-		parent = &s.Files[idx2]
+		parent = &s.files[idx2]
 		q[idx], err = parent.Handler.Stat(parent.Name)
 		if err != nil {
 			return []protocol.QID{}, err
@@ -220,7 +220,7 @@ func (s *Server) Ropen(fid protocol.FID, mode protocol.Mode) (protocol.QID, prot
 		return protocol.QID{}, 0, fmt.Errorf("File not found")
 	}
 
-	f := s.Files[idx]
+	f := s.files[idx]
 	qid, err := f.Handler.Stat(f.Name)
 
 	if err != nil {
@@ -242,13 +242,13 @@ func (s *Server) Rcreate(fid protocol.FID, name string, perm protocol.Perm, mode
 		return protocol.QID{}, 0, fmt.Errorf("File not found")
 	}
 
-	parent := s.Files[idx]
+	parent := s.files[idx]
 	idx, err := parent.Handler.CreateChild(parent.Name, name)
 	if err != nil {
 		return protocol.QID{}, 0, err
 	}
 
-	child := s.Files[idx]
+	child := s.files[idx]
 	qid, err := child.Handler.Stat(child.Name)
 	if err != nil {
 		return protocol.QID{}, 0, err
@@ -263,7 +263,7 @@ func (s *Server) Rclunk(fid protocol.FID) error {
 		return fmt.Errorf("File not found")
 	}
 
-	f := &s.Files[idx]
+	f := &s.files[idx]
 	f.removeFid(fid)
 
 	return nil
@@ -275,7 +275,7 @@ func (s *Server) Rstat(fid protocol.FID) ([]byte, error) {
 		return []byte{}, fmt.Errorf("File not found")
 	}
 
-	f := s.Files[idx]
+	f := s.files[idx]
 	qid, err := f.Handler.Stat(f.Name)
 	if err != nil {
 		return []byte{}, fmt.Errorf("File not found")
@@ -318,7 +318,7 @@ func (s *Server) Rwstat(fid protocol.FID, b []byte) error {
 		return fmt.Errorf("File not found")
 	}
 
-	f := s.Files[idx]
+	f := s.files[idx]
 	return f.Handler.Wstat(f.Name, dir.QID, dir.Length)
 }
 
@@ -328,7 +328,7 @@ func (s *Server) Rremove(fid protocol.FID) error {
 	          return fmt.Errorf("File not found")
 	  }
 
-	  f := s.Files[idx]
+	  f := s.files[idx]
 	  return f.Handler.Remove(f.Name)*/
 
 	return fmt.Errorf("Remove is not supported since it would invalidate the existing QID's")
@@ -344,7 +344,7 @@ func (s *Server) Rread(fid protocol.FID, o protocol.Offset, c protocol.Count) ([
 		return []byte{}, fmt.Errorf("File not found")
 	}
 
-	f := s.Files[idx]
+	f := s.files[idx]
 	return f.Handler.Read(f.Name, int64(o), int64(c))
 }
 
@@ -354,7 +354,7 @@ func (s *Server) Rwrite(fid protocol.FID, o protocol.Offset, b []byte) (protocol
 		return 0, fmt.Errorf("File not found")
 	}
 
-	f := s.Files[idx]
+	f := s.files[idx]
 	c, err := f.Handler.Write(f.Name, int64(o), b)
 	return protocol.Count(c), err
 }
@@ -363,8 +363,8 @@ type ServerOpt func(*protocol.Server) error
 
 func NewServer(files []FileEntry, opts ...protocol.ServerOpt) (*protocol.Server, *Server, error) {
 	f := &Server{}
-	f.Files = files
-	f.Files = append([]FileEntry{NewFileEntry("", &BasicDirHandler{f})}, f.Files...)
+	f.files = files
+	f.files = append([]FileEntry{NewFileEntry("", &BasicDirHandler{f, nil})}, f.files...)
 
 	var d protocol.NineServer = f
 	if *debug {

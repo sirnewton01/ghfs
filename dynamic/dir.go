@@ -13,7 +13,8 @@ import (
 //  entries to show its children. The handler
 //  does not support the creation of any children files.
 type BasicDirHandler struct {
-	S *Server
+	S      *Server
+	Filter func(name string) bool
 }
 
 func (b *BasicDirHandler) WalkChild(name string, child string) (int, error) {
@@ -42,13 +43,22 @@ func (b *BasicDirHandler) Stat(name string) (protocol.QID, error) {
 
 func (b *BasicDirHandler) getDir(name string, length bool, max int64) ([]byte, error) {
 	matches := b.S.MatchFiles(func(f *FileEntry) bool {
-		return strings.HasPrefix(f.Name, name+"/") && strings.Count(name, "/") == strings.Count(f.Name, "/")-1
+		ischild := strings.HasPrefix(f.Name, name+"/") && strings.Count(name, "/") == strings.Count(f.Name, "/")-1
+		if !ischild {
+			return false
+		}
+
+		if b.Filter != nil {
+			return b.Filter(f.Name)
+		}
+
+		return true
 	})
 
 	var bb bytes.Buffer
 
 	for _, idx := range matches {
-		match := &b.S.Files[idx]
+		match := &b.S.files[idx]
 
 		var b bytes.Buffer
 		dir := protocol.Dir{}

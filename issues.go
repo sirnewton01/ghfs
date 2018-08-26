@@ -12,6 +12,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 )
@@ -76,12 +77,20 @@ type IssuesHandler struct {
 	handler *dynamic.BasicDirHandler
 	options *github.IssueListByRepoOptions
 	filter  map[string]bool
+	mutex   sync.Mutex
 }
 
 func NewIssuesHandler(server *dynamic.Server, repoPath string) {
 	handler := &IssuesHandler{}
 	handler.options = &github.IssueListByRepoOptions{State: "open"}
-	handler.handler = &dynamic.BasicDirHandler{server}
+	handler.handler = &dynamic.BasicDirHandler{server, func(name string) bool {
+		if handler.filter == nil {
+			return true
+		}
+
+		_, ok := handler.filter[name]
+		return ok
+	}}
 
 	server.AddFileEntry(path.Join(repoPath, "issues"), handler)
 	NewIssuesCtl(server, path.Join(repoPath, "issues"), handler)
@@ -110,10 +119,13 @@ func (ih *IssuesHandler) WalkChild(name string, child string) (int, error) {
 }
 
 func (ih *IssuesHandler) refresh(owner string, repo string) error {
+	ih.mutex.Lock()
+	defer ih.mutex.Unlock()
+
 	log.Printf("Listing issues for repo %v/%v\n", owner, repo)
 	ih.options.ListOptions = github.ListOptions{PerPage: 1}
 	ih.filter = make(map[string]bool)
-	ih.filter["filter.md"] = true
+	ih.filter["/repos/"+owner+"/"+repo+"/issues/filter.md"] = true
 
 	for {
 		issues, resp, err := client.Issues.ListByRepo(context.Background(), owner, repo, ih.options)
@@ -123,7 +135,7 @@ func (ih *IssuesHandler) refresh(owner string, repo string) error {
 
 		for _, issue := range issues {
 			NewIssue(ih.handler.S, owner, repo, *issue.Number)
-			ih.filter[fmt.Sprintf("%d.md", *issue.Number)] = true
+			ih.filter[fmt.Sprintf("/repos/%s/%s/issues/%d.md", owner, repo, *issue.Number)] = true
 		}
 
 		if resp.NextPage == 0 {
@@ -160,56 +172,6 @@ func (ih *IssuesHandler) Remove(name string) error {
 	return fmt.Errorf("Removing issues ins't supported.")
 }
 
-// This is a copy of what is in BasicDirHandler except that it does an extra filter check on the matches.
-// This could be a candidate for an abstraction in the future if there are more cases where it needs to
-//  be customized.
-func (ih *IssuesHandler) getDir(name string, length bool) ([]byte, error) {
-	matches := ih.handler.S.MatchFiles(func(f *dynamic.FileEntry) bool {
-		matched := strings.HasPrefix(f.Name, name+"/") && strings.Count(name, "/") == strings.Count(f.Name, "/")-1
-		if !matched {
-			return false
-		}
-
-		_, ok := ih.filter[path.Base(f.Name)]
-		return ok
-	})
-
-	var bb bytes.Buffer
-
-	for _, idx := range matches {
-		match := &ih.handler.S.Files[idx]
-
-		var b bytes.Buffer
-		dir := protocol.Dir{}
-		qid, err := match.Handler.Stat(match.Name)
-		if err != nil {
-			return []byte{}, err
-		}
-		qid.Path = uint64(idx)
-		dir.QID = qid
-
-		m := 0755
-		if dir.QID.Type&protocol.QTDIR != 0 {
-			m = m | protocol.DMDIR
-		}
-		dir.Mode = uint32(m)
-
-		if length {
-			l, err := match.Handler.Length(match.Name)
-			if err != nil {
-				return []byte{}, err
-			}
-			dir.Length = l
-		}
-		dir.Name = path.Base(match.Name)
-
-		protocol.Marshaldir(&b, dir)
-		bb.Write(b.Bytes())
-	}
-
-	return bb.Bytes(), nil
-}
-
 func (ih *IssuesHandler) Read(name string, offset int64, count int64) ([]byte, error) {
 	if offset == 0 && count > 0 {
 		repo := path.Base(path.Dir(name))
@@ -219,21 +181,7 @@ func (ih *IssuesHandler) Read(name string, offset int64, count int64) ([]byte, e
 			return []byte{}, err
 		}
 	}
-
-	content, err := ih.getDir(name, true)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	if offset >= int64(len(content)) {
-		return []byte{}, nil // TODO should an error be returned?
-	}
-
-	if offset+count >= int64(len(content)) {
-		return content[offset:], nil
-	}
-
-	return content[offset : offset+count], nil
+	return ih.handler.Read(name, offset, count)
 }
 
 func (ih *IssuesHandler) Write(name string, offset int64, buf []byte) (int64, error) {
@@ -244,10 +192,11 @@ type IssuesCtl struct {
 	ih       *IssuesHandler
 	readbuf  *bytes.Buffer
 	writebuf *bytes.Buffer
+	mutex    sync.Mutex
 }
 
 func NewIssuesCtl(server *dynamic.Server, issuesPath string, ih *IssuesHandler) {
-	handler := &IssuesCtl{ih, &bytes.Buffer{}, &bytes.Buffer{}}
+	handler := &IssuesCtl{ih: ih, readbuf: &bytes.Buffer{}, writebuf: &bytes.Buffer{}}
 	server.AddFileEntry(path.Join(issuesPath, "filter.md"), handler)
 
 	isf := IssuesFilter{}
@@ -266,6 +215,9 @@ func (ic *IssuesCtl) WalkChild(name string, child string) (int, error) {
 }
 
 func (ic *IssuesCtl) Open(name string, mode protocol.Mode) error {
+	ic.mutex.Lock()
+	defer ic.mutex.Unlock()
+
 	ic.readbuf = &bytes.Buffer{}
 	ic.writebuf = &bytes.Buffer{}
 
@@ -292,10 +244,16 @@ func (ic *IssuesCtl) Stat(name string) (protocol.QID, error) {
 }
 
 func (ic *IssuesCtl) Length(name string) (uint64, error) {
+	ic.mutex.Lock()
+	defer ic.mutex.Unlock()
+
 	return uint64(ic.readbuf.Len()), nil
 }
 
 func (ic *IssuesCtl) Wstat(name string, qid protocol.QID, length uint64) error {
+	ic.mutex.Lock()
+	defer ic.mutex.Unlock()
+
 	// TODO catch potential panic
 	ic.writebuf.Truncate(int(length))
 	return nil
@@ -306,6 +264,9 @@ func (ic *IssuesCtl) Remove(name string) error {
 }
 
 func (ic *IssuesCtl) Read(name string, offset int64, count int64) ([]byte, error) {
+	ic.mutex.Lock()
+	defer ic.mutex.Unlock()
+
 	if offset >= int64(ic.readbuf.Len()) {
 		return []byte{}, nil // TODO should an error be returned?
 	}
@@ -318,6 +279,9 @@ func (ic *IssuesCtl) Read(name string, offset int64, count int64) ([]byte, error
 }
 
 func (ic *IssuesCtl) Write(name string, offset int64, buf []byte) (int64, error) {
+	ic.mutex.Lock()
+	defer ic.mutex.Unlock()
+
 	// TODO consider offset
 	length, err := ic.writebuf.Write(buf)
 	if err != nil {
@@ -347,14 +311,18 @@ func (ic *IssuesCtl) Write(name string, offset int64, buf []byte) (int64, error)
 type Issue struct {
 	number  int
 	readbuf *bytes.Buffer
+	mutex   sync.Mutex
 }
 
 func NewIssue(server *dynamic.Server, owner string, repo string, number int) {
-	issue := &Issue{number, &bytes.Buffer{}}
+	issue := &Issue{number: number, readbuf: &bytes.Buffer{}}
 	server.AddFileEntry(path.Join("/repos", owner, repo, "issues", fmt.Sprintf("%d.md", number)), issue)
 }
 
 func (i *Issue) Read(name string, offset int64, count int64) ([]byte, error) {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+
 	if offset == 0 && count > 0 {
 		log.Printf("Fetching issue %d\n", i.number)
 		owner := path.Base(path.Dir(path.Dir(path.Dir(name))))
@@ -414,6 +382,9 @@ func (i *Issue) Stat(name string) (protocol.QID, error) {
 }
 
 func (i *Issue) Length(name string) (uint64, error) {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+
 	return uint64(i.readbuf.Len()), nil
 }
 
