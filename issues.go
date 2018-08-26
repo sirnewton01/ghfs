@@ -113,7 +113,7 @@ func (ih *IssuesHandler) refresh(owner string, repo string) error {
 	log.Printf("Listing issues for repo %v/%v\n", owner, repo)
 	ih.options.ListOptions = github.ListOptions{PerPage: 1}
 	ih.filter = make(map[string]bool)
-	ih.filter["ctl"] = true
+	ih.filter["filter.md"] = true
 
 	for {
 		issues, resp, err := client.Issues.ListByRepo(context.Background(), owner, repo, ih.options)
@@ -248,7 +248,7 @@ type IssuesCtl struct {
 
 func NewIssuesCtl(server *dynamic.Server, issuesPath string, ih *IssuesHandler) {
 	handler := &IssuesCtl{ih, &bytes.Buffer{}, &bytes.Buffer{}}
-	server.AddFileEntry(path.Join(issuesPath, "ctl"), handler)
+	server.AddFileEntry(path.Join(issuesPath, "filter.md"), handler)
 
 	isf := IssuesFilter{}
 	isf.Mentioned = handler.ih.options.Mentioned
@@ -262,7 +262,7 @@ func NewIssuesCtl(server *dynamic.Server, issuesPath string, ih *IssuesHandler) 
 }
 
 func (ic *IssuesCtl) WalkChild(name string, child string) (int, error) {
-	return -1, fmt.Errorf("No children of the issues ctl file")
+	return -1, fmt.Errorf("No children of the issues filter.md file")
 }
 
 func (ic *IssuesCtl) Open(name string, mode protocol.Mode) error {
@@ -283,7 +283,7 @@ func (ic *IssuesCtl) Open(name string, mode protocol.Mode) error {
 }
 
 func (ic *IssuesCtl) CreateChild(name string, child string) (int, error) {
-	return -1, fmt.Errorf("Creating a child of an issue ctl is not supported")
+	return -1, fmt.Errorf("Creating a child of an issue filter.md is not supported")
 }
 
 func (ic *IssuesCtl) Stat(name string) (protocol.QID, error) {
@@ -302,7 +302,7 @@ func (ic *IssuesCtl) Wstat(name string, qid protocol.QID, length uint64) error {
 }
 
 func (ic *IssuesCtl) Remove(name string) error {
-	return fmt.Errorf("Removing issues ctl isn't supported.")
+	return fmt.Errorf("Removing issues filter.md isn't supported.")
 }
 
 func (ic *IssuesCtl) Read(name string, offset int64, count int64) ([]byte, error) {

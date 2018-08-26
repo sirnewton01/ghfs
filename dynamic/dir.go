@@ -40,7 +40,7 @@ func (b *BasicDirHandler) Stat(name string) (protocol.QID, error) {
 	return protocol.QID{Version: 0, Type: protocol.QTDIR}, nil
 }
 
-func (b *BasicDirHandler) getDir(name string, length bool) ([]byte, error) {
+func (b *BasicDirHandler) getDir(name string, length bool, max int64) ([]byte, error) {
 	matches := b.S.MatchFiles(func(f *FileEntry) bool {
 		return strings.HasPrefix(f.Name, name+"/") && strings.Count(name, "/") == strings.Count(f.Name, "/")-1
 	})
@@ -76,13 +76,16 @@ func (b *BasicDirHandler) getDir(name string, length bool) ([]byte, error) {
 
 		protocol.Marshaldir(&b, dir)
 		bb.Write(b.Bytes())
+		if max != -1 && int64(bb.Len())+int64(b.Len()) > max {
+			break
+		}
 	}
 
 	return bb.Bytes(), nil
 }
 
 func (b *BasicDirHandler) Length(name string) (uint64, error) {
-	contents, err := b.getDir(name, false)
+	contents, err := b.getDir(name, false, -1)
 	if err != nil {
 		return 0, err
 	}
@@ -99,7 +102,7 @@ func (b *BasicDirHandler) Remove(name string) error {
 }
 
 func (b *BasicDirHandler) Read(name string, offset int64, count int64) ([]byte, error) {
-	content, err := b.getDir(name, true)
+	content, err := b.getDir(name, true, offset+count)
 	if err != nil {
 		return []byte{}, err
 	}

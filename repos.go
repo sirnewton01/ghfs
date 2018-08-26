@@ -19,8 +19,8 @@ var (
 
 {{ .Description }}
 
-Created: {{ .CreatedAt }}
-Pushed: {{ .PushedAt }}
+Created: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+Pushed: {{ .PushedAt.Format "2006-01-02T15:04:05Z07:00" }}
 
 Watchers: {{ .WatchersCount }}
 Stars: {{ .StargazersCount }}
@@ -161,7 +161,7 @@ func (oh *OwnerHandler) refresh(owner string) error {
 		for _, repo := range repos {
 			log.Printf("Adding repo %v\n", *repo.Name)
 			oh.dirhandler.S.AddFileEntry(path.Join("/repos", owner, *repo.Name), &dynamic.BasicDirHandler{oh.dirhandler.S})
-			oh.dirhandler.S.AddFileEntry(path.Join("/repos", owner, *repo.Name, "README.md"), &RepoOverviewHandler{filehandler: &dynamic.StaticFileHandler{[]byte{}}})
+			oh.dirhandler.S.AddFileEntry(path.Join("/repos", owner, *repo.Name, "repo.md"), &RepoOverviewHandler{filehandler: &dynamic.StaticFileHandler{[]byte{}}})
 			NewIssuesHandler(oh.dirhandler.S, path.Join("/repos", owner, *repo.Name))
 		}
 
