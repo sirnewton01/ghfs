@@ -15,7 +15,7 @@ import (
 
 var (
 	repoMarkdown = template.Must(template.New("repository").Funcs(funcMap).Parse(
-		`# {{ .FullName }} {{ if .GetFork }} [Forked] {{ end }}
+		`# {{ .FullName }} {{ if .GetFork }}[{{ .GetSource.FullName }}](../../{{ .GetSource.Owner.Login }}/{{ .GetSource.Name }}/repo.md){{ end }}
 
 {{ .Description }}
 
