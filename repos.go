@@ -9,28 +9,38 @@ import (
 	"github.com/sirnewton01/ghfs/dynamic"
 	"log"
 	"path"
+	"strings"
 	"sync"
 	"text/template"
 )
 
 var (
 	repoMarkdown = template.Must(template.New("repository").Funcs(funcMap).Parse(
-		`# {{ .FullName }} {{ if .GetFork }}[{{ .GetSource.FullName }}](../../{{ .GetSource.Owner.Login }}/{{ .GetSource.Name }}/repo.md){{ end }}
+		`# {{ .Rest.FullName }} {{ if .Rest.GetFork }}[{{ .Rest.GetSource.FullName }}](../../{{ .Rest.GetSource.Owner.Login }}/{{ .Rest.GetSource.Name }}/repo.md){{ end }}
 
-{{ .Description }}
+{{ markform .Form "Description" }}
 
-Created: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
-Pushed: {{ .PushedAt.Format "2006-01-02T15:04:05Z07:00" }}
+Created: {{ .Rest.CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+Pushed: {{ .Rest.PushedAt.Format "2006-01-02T15:04:05Z07:00" }}
 
-Watchers: {{ .WatchersCount }}
-Stars: {{ .StargazersCount }}
-Forks: {{ .ForksCount }}
+Watchers: {{ .Rest.WatchersCount }}
+Stars: {{ .Rest.StargazersCount }}
+Forks: {{ .Rest.ForksCount }}
 
-Default branch: {{ .DefaultBranch }}
+Default branch: {{ .Rest.DefaultBranch }}
 
-git clone {{ .CloneURL }}
+git clone {{ .Rest.CloneURL }}
 `))
 )
+
+type repoMarkdownForm struct {
+	Description string ` = ___`
+}
+
+type repoMarkdownModel struct {
+	Form repoMarkdownForm
+	Rest *github.Repository
+}
 
 // ReposHandler handles the repos directory dynamically loading
 //  owners as they are looked up so that they show up in directory
@@ -130,6 +140,13 @@ type OwnerHandler struct {
 
 func (oh *OwnerHandler) WalkChild(name string, child string) (int, error) {
 	idx, err := oh.dirhandler.WalkChild(name, child)
+
+	// No hidden files as repo names on github
+	// Also, Mac probes heavily for them costing
+	//  significant performance.
+	if idx == -1 && strings.HasPrefix(child, ".") {
+		return idx, err
+	}
 
 	if idx == -1 {
 		owner := path.Base(name)
@@ -235,8 +252,13 @@ func (roh *RepoOverviewHandler) refresh(owner string, repo string) error {
 		return err
 	}
 
+	model := repoMarkdownModel{Rest: r}
+	if r.Description != nil {
+		model.Form.Description = *r.Description
+	}
+
 	buf := bytes.Buffer{}
-	err = repoMarkdown.Execute(&buf, r)
+	err = repoMarkdown.Execute(&buf, model)
 	if err != nil {
 		return err
 	}
@@ -279,5 +301,32 @@ func (roh *RepoOverviewHandler) Read(name string, offset int64, count int64) ([]
 }
 
 func (roh *RepoOverviewHandler) Write(name string, offset int64, buf []byte) (int64, error) {
+	/*ic.mutex.Lock()
+	  defer ic.mutex.Unlock()
+
+	  // TODO consider offset
+	  length, err := ic.writebuf.Write(buf)
+	  if err != nil {
+	          return int64(length), err
+	  }
+
+	  // TODO handle multiple writes for the entire file
+	  isf := IssuesFilter{}
+	  err = markform.Unmarshal(ic.writebuf.Bytes(), &isf)
+	  if err != nil {
+	          return int64(length), err
+	  }
+
+	  ic.ih.options.Milestone = isf.Milestone
+	  ic.ih.options.State = isf.State
+	  ic.ih.options.Assignee = isf.Assignee
+	  ic.ih.options.Creator = isf.Creator
+	  ic.ih.options.Mentioned = isf.Mentioned
+	  ic.ih.options.Labels = isf.Labels
+	  ic.ih.options.Since = isf.Since
+
+	  err = ic.ih.refresh(path.Base(path.Dir(path.Dir(path.Dir(name)))), path.Base(path.Dir(path.Dir(name))))
+
+	  return int64(length), err*/
 	return 0, fmt.Errorf("Modifying repos is not supported.")
 }
