@@ -33,7 +33,6 @@ godbg				plan9-font-hack
 
 $ cat /github/repos/sirnewton01/ghfs/repo.md
 
-```
 # sirnewton01/ghfs 
 
 Description = 9p GitHub filesystem written in Go for use with Plan 9/p9p___
@@ -65,6 +64,7 @@ Labels: enhancement
     Also, it would be useful to have the issues owned by a particular user, except that would only be visible on Plan 9, since the FUSE filesystems generally set the owners of everything to a specific user.
 ```
 
+Here is how ghfs can look if you are using the Acme editor.
 ![acme-screenshot](docs/screenshot-acme.png)
 
 ## End Goal
