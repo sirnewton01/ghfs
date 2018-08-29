@@ -168,7 +168,7 @@ func NewOwnerHandler(owner string) (int, error) {
 	idx := server.AddFileEntry(path.Join("/repos", owner), &OwnerHandler{&dynamic.BasicDirHandler{server, nil}})
 
 	// Check if it is an organization
-	_, _, err := client.Organizations.Get(context.Background(), owner)
+	org, _, err := client.Organizations.Get(context.Background(), owner)
 	if err != nil {
 		// It could be a user
 		user, _, err := client.Users.Get(context.Background(), owner)
@@ -178,6 +178,7 @@ func NewOwnerHandler(owner string) (int, error) {
 		NewUserHandler(*user.Login)
 		return idx, nil
 	}
+	NewOrgHandler(*org.Login)
 	//server.AddFileEntry(path.Join("/repos", owner, "org.md"), NewOrgHandler(org))
 	return idx, nil
 }
@@ -285,7 +286,7 @@ func NewUserHandler(name string) {
 }
 
 // UserHandler handles the displaying and updating of the
-//  user.md for a user.
+//  0user.md for a user.
 type UserHandler struct {
 	filehandler *dynamic.StaticFileHandler
 	mu          sync.Mutex
@@ -344,6 +345,73 @@ func (uh *UserHandler) Read(name string, offset int64, count int64) ([]byte, err
 }
 
 func (uh *UserHandler) Write(name string, offset int64, buf []byte) (int64, error) {
+	return 0, fmt.Errorf("Modifying users is not supported.")
+}
+
+func NewOrgHandler(name string) {
+	server.AddFileEntry(path.Join("/repos", name, "0org.md"), &UserHandler{filehandler: &dynamic.StaticFileHandler{[]byte{}}})
+}
+
+// UserHandler handles the displaying and updating of the
+//  0org.md for a user.
+type OrgHandler struct {
+	filehandler *dynamic.StaticFileHandler
+	mu          sync.Mutex
+}
+
+func (oh *OrgHandler) WalkChild(name string, child string) (int, error) {
+	return oh.filehandler.WalkChild(name, child)
+}
+
+func (oh *OrgHandler) Open(name string, mode protocol.Mode) error {
+	user := path.Base(path.Dir(name))
+
+	log.Printf("Reading user %s\n", user)
+
+	oh.mu.Lock()
+	defer oh.mu.Unlock()
+
+	u, _, err := client.Users.Get(context.Background(), user)
+	if err != nil {
+		return err
+	}
+
+	buf := bytes.Buffer{}
+	err = userMarkdown.Execute(&buf, u)
+	if err != nil {
+		return err
+	}
+
+	oh.filehandler.Content = buf.Bytes()
+
+	return oh.filehandler.Open(name, mode)
+}
+
+func (oh *OrgHandler) CreateChild(name string, child string) (int, error) {
+	return oh.filehandler.CreateChild(name, child)
+}
+
+func (oh *OrgHandler) Stat(name string) (protocol.QID, error) {
+	return oh.filehandler.Stat(name)
+}
+
+func (oh *OrgHandler) Length(name string) (uint64, error) {
+	return oh.filehandler.Length(name)
+}
+
+func (oh *OrgHandler) Wstat(name string, qid protocol.QID, length uint64) error {
+	return fmt.Errorf("Unsupported operation")
+}
+
+func (oh *OrgHandler) Remove(name string) error {
+	return fmt.Errorf("A repo cannot be removed.")
+}
+
+func (oh *OrgHandler) Read(name string, offset int64, count int64) ([]byte, error) {
+	return oh.filehandler.Read(name, offset, count)
+}
+
+func (oh *OrgHandler) Write(name string, offset int64, buf []byte) (int64, error) {
 	return 0, fmt.Errorf("Modifying users is not supported.")
 }
 
