@@ -21,7 +21,7 @@ var (
 	issueMarkdown = template.Must(template.New("issue").Funcs(funcMap).Parse(
 		`# {{ .Title  }} (#{{ .Number }})
 
-State: {{ .State }} - [{{ .User.Login }}](../../../{{ .User.Login }}) opened this issue {{ .CreatedAt }} - {{ .Comments }} comments
+State: {{ .State }} - [{{ .User.Login }}](../../../{{ .User.Login }}) opened this issue {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }} - {{ .Comments }} comments
 
 Assignee: {{if .Assignee}} [{{ .Assignee.Login }}](../../../{{ .Assignee.Login }}) {{else}} Not Assigned {{end}}
 
@@ -32,7 +32,7 @@ Labels: {{range .Labels}}{{.Name}} {{end}}
 `))
 
 	commentMarkdown = template.Must(template.New("comment").Funcs(funcMap).Parse(
-		`## [{{ .User.Login }}](../../../{{ .User.Login }}) commented {{ .CreatedAt }} ({{ .AuthorAssociation }})
+		`## [{{ .User.Login }}](../../../{{ .User.Login }}) commented {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }} ({{ .AuthorAssociation }})
 
 {{ markdown .Body }}
 
