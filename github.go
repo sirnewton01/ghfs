@@ -23,6 +23,7 @@ var (
 	naddr       = flag.String("addr", ":5640", "Network address")
 	apitoken    = flag.String("apitoken", "", "Personal API Token for authentication")
 	lognet      = flag.Bool("lognet", false, "Log network requests")
+	server      *dynamic.Server
 )
 
 func markdown(content string) string {
@@ -132,6 +133,8 @@ the expected format and make it easy to modify.
 		})
 
 	d.AddFileEntry("/repos", &ReposHandler{&dynamic.BasicDirHandler{d, nil}})
+
+	server = d
 
 	if err := s.Serve(ln); err != nil {
 		log.Fatal(err)

@@ -31,6 +31,34 @@ Default branch: {{ .Rest.DefaultBranch }}
 
 git clone {{ .Rest.CloneURL }}
 `))
+
+	userMarkdown = template.Must(template.New("user").Funcs(funcMap).Parse(
+		`# {{ .Name }} - {{ .Login }}
+
+Location: {{ .Location }}
+Email: {{ .Email }}
+
+{{ .Bio }}
+
+Created: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+Updated: {{ .UpdatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+
+Followers: {{ .Followers }}
+`))
+
+	orgMarkdown = template.Must(template.New("org").Funcs(funcMap).Parse(
+		`# {{ .Name }} - {{ .Login }}
+
+Location: {{ .Location }}
+Email: {{ .Email }}
+
+{{ .Description }}
+
+Created: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+Updated: {{ .UpdatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+
+Followers: {{ .Followers }}
+`))
 )
 
 type repoMarkdownForm struct {
@@ -56,16 +84,10 @@ func (rh *ReposHandler) WalkChild(name string, child string) (int, error) {
 	if idx == -1 {
 		log.Printf("Checking if owner %v exists\n", child)
 
-		options := github.RepositoryListOptions{
-			ListOptions: github.ListOptions{PerPage: 1},
+		idx, err = NewOwnerHandler(child)
+		if idx == -1 {
+			return -1, fmt.Errorf("Child not found: %s", child)
 		}
-
-		_, _, err := client.Repositories.List(context.Background(), child, &options)
-		if err != nil {
-			return -1, err
-		}
-
-		return rh.dirhandler.S.AddFileEntry(path.Join(name, child), &OwnerHandler{&dynamic.BasicDirHandler{rh.dirhandler.S, nil}}), nil
 	}
 
 	return idx, err
@@ -97,7 +119,10 @@ func (rh *ReposHandler) Remove(name string) error {
 
 func (rh *ReposHandler) Read(name string, offset int64, count int64) ([]byte, error) {
 	if offset == 0 && count > 0 && currentUser != "" {
-		rh.dirhandler.S.AddFileEntry(path.Join(name, currentUser), &OwnerHandler{&dynamic.BasicDirHandler{rh.dirhandler.S, nil}})
+		_, err := NewOwnerHandler(currentUser)
+		if err != nil {
+			return []byte{}, err
+		}
 
 		options := github.ListOptions{PerPage: 10}
 		// Add following
@@ -114,7 +139,10 @@ func (rh *ReposHandler) Read(name string, offset int64, count int64) ([]byte, er
 
 			for _, user := range users {
 				log.Printf("Adding following %v\n", *user.Login)
-				rh.dirhandler.S.AddFileEntry(path.Join(name, *user.Login), &OwnerHandler{&dynamic.BasicDirHandler{rh.dirhandler.S, nil}})
+				_, err = NewOwnerHandler(*user.Login)
+				if err != nil {
+					return []byte{}, err
+				}
 			}
 
 			if resp.NextPage == 0 {
@@ -131,9 +159,31 @@ func (rh *ReposHandler) Write(name string, offset int64, buf []byte) (int64, err
 	return 0, fmt.Errorf("Creating a new user or organization is not supported.")
 }
 
+func NewOwnerHandler(owner string) (int, error) {
+	// Skip hidden files as they are not owners on GitHub
+	if strings.HasPrefix(owner, ".") {
+		return -1, nil
+	}
+
+	idx := server.AddFileEntry(path.Join("/repos", owner), &OwnerHandler{&dynamic.BasicDirHandler{server, nil}})
+
+	// Check if it is an organization
+	_, _, err := client.Organizations.Get(context.Background(), owner)
+	if err != nil {
+		// It could be a user
+		user, _, err := client.Users.Get(context.Background(), owner)
+		if err != nil {
+			return -1, err
+		}
+		NewUserHandler(*user.Login)
+		return idx, nil
+	}
+	//server.AddFileEntry(path.Join("/repos", owner, "org.md"), NewOrgHandler(org))
+	return idx, nil
+}
+
 // OwnerHandler handles a owner within the repos directory listing
 //  out all of their repositories.
-// TODO add a README.md describing the owner themselves
 type OwnerHandler struct {
 	dirhandler *dynamic.BasicDirHandler
 }
@@ -177,9 +227,9 @@ func (oh *OwnerHandler) refresh(owner string) error {
 
 		for _, repo := range repos {
 			log.Printf("Adding repo %v\n", *repo.Name)
-			oh.dirhandler.S.AddFileEntry(path.Join("/repos", owner, *repo.Name), &dynamic.BasicDirHandler{oh.dirhandler.S, nil})
-			oh.dirhandler.S.AddFileEntry(path.Join("/repos", owner, *repo.Name, "repo.md"), &RepoOverviewHandler{filehandler: &dynamic.StaticFileHandler{[]byte{}}})
-			NewIssuesHandler(oh.dirhandler.S, path.Join("/repos", owner, *repo.Name))
+			server.AddFileEntry(path.Join("/repos", owner, *repo.Name), &dynamic.BasicDirHandler{server, nil})
+			server.AddFileEntry(path.Join("/repos", owner, *repo.Name, "repo.md"), &RepoOverviewHandler{filehandler: &dynamic.StaticFileHandler{[]byte{}}})
+			NewIssuesHandler(server, path.Join("/repos", owner, *repo.Name))
 		}
 
 		if resp.NextPage == 0 {
@@ -230,8 +280,75 @@ func (oh *OwnerHandler) Write(name string, offset int64, buf []byte) (int64, err
 	return 0, fmt.Errorf("Creating repos is not supported.")
 }
 
+func NewUserHandler(name string) {
+	server.AddFileEntry(path.Join("/repos", name, "0user.md"), &UserHandler{filehandler: &dynamic.StaticFileHandler{[]byte{}}})
+}
+
+// UserHandler handles the displaying and updating of the
+//  user.md for a user.
+type UserHandler struct {
+	filehandler *dynamic.StaticFileHandler
+	mu          sync.Mutex
+}
+
+func (uh *UserHandler) WalkChild(name string, child string) (int, error) {
+	return uh.filehandler.WalkChild(name, child)
+}
+
+func (uh *UserHandler) Open(name string, mode protocol.Mode) error {
+	user := path.Base(path.Dir(name))
+
+	log.Printf("Reading user %s\n", user)
+
+	uh.mu.Lock()
+	defer uh.mu.Unlock()
+
+	u, _, err := client.Users.Get(context.Background(), user)
+	if err != nil {
+		return err
+	}
+
+	buf := bytes.Buffer{}
+	err = userMarkdown.Execute(&buf, u)
+	if err != nil {
+		return err
+	}
+
+	uh.filehandler.Content = buf.Bytes()
+
+	return uh.filehandler.Open(name, mode)
+}
+
+func (uh *UserHandler) CreateChild(name string, child string) (int, error) {
+	return uh.filehandler.CreateChild(name, child)
+}
+
+func (uh *UserHandler) Stat(name string) (protocol.QID, error) {
+	return uh.filehandler.Stat(name)
+}
+
+func (uh *UserHandler) Length(name string) (uint64, error) {
+	return uh.filehandler.Length(name)
+}
+
+func (uh *UserHandler) Wstat(name string, qid protocol.QID, length uint64) error {
+	return fmt.Errorf("Unsupported operation")
+}
+
+func (uh *UserHandler) Remove(name string) error {
+	return fmt.Errorf("A repo cannot be removed.")
+}
+
+func (uh *UserHandler) Read(name string, offset int64, count int64) ([]byte, error) {
+	return uh.filehandler.Read(name, offset, count)
+}
+
+func (uh *UserHandler) Write(name string, offset int64, buf []byte) (int64, error) {
+	return 0, fmt.Errorf("Modifying users is not supported.")
+}
+
 // RepoOverviewHandler handles the displaying and updating of the
-//  README.md for a repo.
+//  repo.md for a repo.
 type RepoOverviewHandler struct {
 	filehandler *dynamic.StaticFileHandler
 	mu          sync.Mutex
@@ -241,7 +358,10 @@ func (roh *RepoOverviewHandler) WalkChild(name string, child string) (int, error
 	return roh.filehandler.WalkChild(name, child)
 }
 
-func (roh *RepoOverviewHandler) refresh(owner string, repo string) error {
+func (roh *RepoOverviewHandler) Open(name string, mode protocol.Mode) error {
+	owner := path.Base(path.Dir(path.Dir(name)))
+	repo := path.Base(path.Dir(name))
+
 	log.Printf("Reading repository %s/%s\n", owner, repo)
 
 	roh.mu.Lock()
@@ -264,14 +384,6 @@ func (roh *RepoOverviewHandler) refresh(owner string, repo string) error {
 	}
 
 	roh.filehandler.Content = buf.Bytes()
-	return nil
-}
-
-func (roh *RepoOverviewHandler) Open(name string, mode protocol.Mode) error {
-	err := roh.refresh(path.Base(path.Dir(path.Dir(name))), path.Base(path.Dir(name)))
-	if err != nil {
-		return err
-	}
 
 	return roh.filehandler.Open(name, mode)
 }
