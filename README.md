@@ -113,3 +113,5 @@ grep '^ #' *.md
 7.md:# Create/Edit Issues (#7)
 8.md:# Pull requests are showing up as issues (#8)
 ```
+
+If you are using Acme you can right-click on the file names to expand each issue.
