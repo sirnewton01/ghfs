@@ -74,7 +74,7 @@ type IssuesFilter struct {
 }
 
 type IssuesHandler struct {
-	handler *dynamic.BasicDirHandler
+	dynamic.BasicDirHandler
 	options *github.IssueListByRepoOptions
 	filter  map[string]bool
 	mutex   sync.Mutex
@@ -83,7 +83,7 @@ type IssuesHandler struct {
 func NewIssuesHandler(server *dynamic.Server, repoPath string) {
 	handler := &IssuesHandler{}
 	handler.options = &github.IssueListByRepoOptions{State: "open"}
-	handler.handler = &dynamic.BasicDirHandler{server, func(name string) bool {
+	handler.BasicDirHandler = dynamic.BasicDirHandler{server, func(name string) bool {
 		if handler.filter == nil {
 			return true
 		}
@@ -97,7 +97,7 @@ func NewIssuesHandler(server *dynamic.Server, repoPath string) {
 }
 
 func (ih *IssuesHandler) WalkChild(name string, child string) (int, error) {
-	idx, _ := ih.handler.WalkChild(name, child)
+	idx, _ := ih.BasicDirHandler.WalkChild(name, child)
 	if idx == -1 {
 		number, err := strconv.Atoi(strings.Replace(child, ".md", "", 1))
 		if err != nil {
@@ -112,10 +112,10 @@ func (ih *IssuesHandler) WalkChild(name string, child string) (int, error) {
 			return idx, err
 		}
 
-		NewIssue(ih.handler.S, owner, repo, *issue.Number)
+		NewIssue(server, owner, repo, *issue.Number)
 	}
 
-	return ih.handler.WalkChild(name, child)
+	return ih.BasicDirHandler.WalkChild(name, child)
 }
 
 func (ih *IssuesHandler) refresh(owner string, repo string) error {
@@ -134,7 +134,7 @@ func (ih *IssuesHandler) refresh(owner string, repo string) error {
 		}
 
 		for _, issue := range issues {
-			NewIssue(ih.handler.S, owner, repo, *issue.Number)
+			NewIssue(server, owner, repo, *issue.Number)
 			ih.filter[fmt.Sprintf("/repos/%s/%s/issues/%d.md", owner, repo, *issue.Number)] = true
 		}
 
@@ -156,18 +156,6 @@ func (ih *IssuesHandler) CreateChild(name string, child string) (int, error) {
 	return -1, fmt.Errorf("Creating an issue is not supported")
 }
 
-func (ih *IssuesHandler) Stat(name string) (protocol.QID, error) {
-	return ih.handler.Stat(name)
-}
-
-func (ih *IssuesHandler) Length(name string) (uint64, error) {
-	return ih.handler.Length(name)
-}
-
-func (ih *IssuesHandler) Wstat(name string, qid protocol.QID, length uint64) error {
-	return ih.handler.Wstat(name, qid, length)
-}
-
 func (ih *IssuesHandler) Remove(name string) error {
 	return fmt.Errorf("Removing issues ins't supported.")
 }
@@ -181,11 +169,7 @@ func (ih *IssuesHandler) Read(name string, offset int64, count int64) ([]byte, e
 			return []byte{}, err
 		}
 	}
-	return ih.handler.Read(name, offset, count)
-}
-
-func (ih *IssuesHandler) Write(name string, offset int64, buf []byte) (int64, error) {
-	return ih.handler.Write(name, offset, buf)
+	return ih.BasicDirHandler.Read(name, offset, count)
 }
 
 type IssuesCtl struct {

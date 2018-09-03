@@ -75,11 +75,11 @@ type repoMarkdownModel struct {
 //  listings afterwards. If the connection is authenticated then
 //  the authenticated user shows up right away.
 type ReposHandler struct {
-	dirhandler *dynamic.BasicDirHandler
+	dynamic.BasicDirHandler
 }
 
 func (rh *ReposHandler) WalkChild(name string, child string) (int, error) {
-	idx, err := rh.dirhandler.WalkChild(name, child)
+	idx, err := rh.BasicDirHandler.WalkChild(name, child)
 
 	if idx == -1 {
 		log.Printf("Checking if owner %v exists\n", child)
@@ -93,20 +93,8 @@ func (rh *ReposHandler) WalkChild(name string, child string) (int, error) {
 	return idx, err
 }
 
-func (rh *ReposHandler) Open(name string, mode protocol.Mode) error {
-	return rh.dirhandler.Open(name, mode)
-}
-
 func (rh *ReposHandler) CreateChild(name string, child string) (int, error) {
 	return -1, fmt.Errorf("Creating organizations or users is not supported.")
-}
-
-func (rh *ReposHandler) Stat(name string) (protocol.QID, error) {
-	return rh.dirhandler.Stat(name)
-}
-
-func (rh *ReposHandler) Length(name string) (uint64, error) {
-	return rh.dirhandler.Length(name)
 }
 
 func (rh *ReposHandler) Wstat(name string, qid protocol.QID, length uint64) error {
@@ -152,7 +140,7 @@ func (rh *ReposHandler) Read(name string, offset int64, count int64) ([]byte, er
 		}
 
 	}
-	return rh.dirhandler.Read(name, offset, count)
+	return rh.BasicDirHandler.Read(name, offset, count)
 }
 
 func (rh *ReposHandler) Write(name string, offset int64, buf []byte) (int64, error) {
@@ -165,7 +153,7 @@ func NewOwnerHandler(owner string) (int, error) {
 		return -1, nil
 	}
 
-	idx := server.AddFileEntry(path.Join("/repos", owner), &OwnerHandler{&dynamic.BasicDirHandler{server, nil}})
+	idx := server.AddFileEntry(path.Join("/repos", owner), &OwnerHandler{dynamic.BasicDirHandler{server, nil}})
 
 	// Check if it is an organization
 	org, _, err := client.Organizations.Get(context.Background(), owner)
@@ -186,11 +174,11 @@ func NewOwnerHandler(owner string) (int, error) {
 // OwnerHandler handles a owner within the repos directory listing
 //  out all of their repositories.
 type OwnerHandler struct {
-	dirhandler *dynamic.BasicDirHandler
+	dynamic.BasicDirHandler
 }
 
 func (oh *OwnerHandler) WalkChild(name string, child string) (int, error) {
-	idx, err := oh.dirhandler.WalkChild(name, child)
+	idx, err := oh.BasicDirHandler.WalkChild(name, child)
 
 	// No hidden files as repo names on github
 	// Also, Mac probes heavily for them costing
@@ -207,7 +195,7 @@ func (oh *OwnerHandler) WalkChild(name string, child string) (int, error) {
 		}
 	}
 
-	return oh.dirhandler.WalkChild(name, child)
+	return oh.BasicDirHandler.WalkChild(name, child)
 }
 
 func (oh *OwnerHandler) refresh(owner string) error {
@@ -229,7 +217,7 @@ func (oh *OwnerHandler) refresh(owner string) error {
 		for _, repo := range repos {
 			log.Printf("Adding repo %v\n", *repo.Name)
 			server.AddFileEntry(path.Join("/repos", owner, *repo.Name), &dynamic.BasicDirHandler{server, nil})
-			server.AddFileEntry(path.Join("/repos", owner, *repo.Name, "repo.md"), &RepoOverviewHandler{filehandler: &dynamic.StaticFileHandler{[]byte{}}})
+			server.AddFileEntry(path.Join("/repos", owner, *repo.Name, "repo.md"), &RepoOverviewHandler{StaticFileHandler: dynamic.StaticFileHandler{[]byte{}}})
 			NewIssuesHandler(server, path.Join("/repos", owner, *repo.Name))
 		}
 
@@ -242,20 +230,8 @@ func (oh *OwnerHandler) refresh(owner string) error {
 	return nil
 }
 
-func (oh *OwnerHandler) Open(name string, mode protocol.Mode) error {
-	return oh.dirhandler.Open(name, mode)
-}
-
 func (oh *OwnerHandler) CreateChild(name string, child string) (int, error) {
 	return -1, fmt.Errorf("Creating repos is not supported.")
-}
-
-func (oh *OwnerHandler) Stat(name string) (protocol.QID, error) {
-	return oh.dirhandler.Stat(name)
-}
-
-func (oh *OwnerHandler) Length(name string) (uint64, error) {
-	return oh.dirhandler.Length(name)
 }
 
 func (oh *OwnerHandler) Wstat(name string, qid protocol.QID, length uint64) error {
@@ -274,7 +250,7 @@ func (oh *OwnerHandler) Read(name string, offset int64, count int64) ([]byte, er
 		}
 	}
 
-	return oh.dirhandler.Read(name, offset, count)
+	return oh.BasicDirHandler.Read(name, offset, count)
 }
 
 func (oh *OwnerHandler) Write(name string, offset int64, buf []byte) (int64, error) {
@@ -282,18 +258,18 @@ func (oh *OwnerHandler) Write(name string, offset int64, buf []byte) (int64, err
 }
 
 func NewUserHandler(name string) {
-	server.AddFileEntry(path.Join("/repos", name, "0user.md"), &UserHandler{filehandler: &dynamic.StaticFileHandler{[]byte{}}})
+	server.AddFileEntry(path.Join("/repos", name, "0user.md"), &UserHandler{StaticFileHandler: dynamic.StaticFileHandler{[]byte{}}})
 }
 
 // UserHandler handles the displaying and updating of the
 //  0user.md for a user.
 type UserHandler struct {
-	filehandler *dynamic.StaticFileHandler
-	mu          sync.Mutex
+	dynamic.StaticFileHandler
+	mu sync.Mutex
 }
 
 func (uh *UserHandler) WalkChild(name string, child string) (int, error) {
-	return uh.filehandler.WalkChild(name, child)
+	return uh.StaticFileHandler.WalkChild(name, child)
 }
 
 func (uh *UserHandler) Open(name string, mode protocol.Mode) error {
@@ -315,21 +291,9 @@ func (uh *UserHandler) Open(name string, mode protocol.Mode) error {
 		return err
 	}
 
-	uh.filehandler.Content = buf.Bytes()
+	uh.StaticFileHandler.Content = buf.Bytes()
 
-	return uh.filehandler.Open(name, mode)
-}
-
-func (uh *UserHandler) CreateChild(name string, child string) (int, error) {
-	return uh.filehandler.CreateChild(name, child)
-}
-
-func (uh *UserHandler) Stat(name string) (protocol.QID, error) {
-	return uh.filehandler.Stat(name)
-}
-
-func (uh *UserHandler) Length(name string) (uint64, error) {
-	return uh.filehandler.Length(name)
+	return uh.StaticFileHandler.Open(name, mode)
 }
 
 func (uh *UserHandler) Wstat(name string, qid protocol.QID, length uint64) error {
@@ -340,27 +304,19 @@ func (uh *UserHandler) Remove(name string) error {
 	return fmt.Errorf("A repo cannot be removed.")
 }
 
-func (uh *UserHandler) Read(name string, offset int64, count int64) ([]byte, error) {
-	return uh.filehandler.Read(name, offset, count)
-}
-
 func (uh *UserHandler) Write(name string, offset int64, buf []byte) (int64, error) {
 	return 0, fmt.Errorf("Modifying users is not supported.")
 }
 
 func NewOrgHandler(name string) {
-	server.AddFileEntry(path.Join("/repos", name, "0org.md"), &UserHandler{filehandler: &dynamic.StaticFileHandler{[]byte{}}})
+	server.AddFileEntry(path.Join("/repos", name, "0org.md"), &UserHandler{StaticFileHandler: dynamic.StaticFileHandler{[]byte{}}})
 }
 
 // UserHandler handles the displaying and updating of the
 //  0org.md for a user.
 type OrgHandler struct {
-	filehandler *dynamic.StaticFileHandler
-	mu          sync.Mutex
-}
-
-func (oh *OrgHandler) WalkChild(name string, child string) (int, error) {
-	return oh.filehandler.WalkChild(name, child)
+	dynamic.StaticFileHandler
+	mu sync.Mutex
 }
 
 func (oh *OrgHandler) Open(name string, mode protocol.Mode) error {
@@ -382,21 +338,9 @@ func (oh *OrgHandler) Open(name string, mode protocol.Mode) error {
 		return err
 	}
 
-	oh.filehandler.Content = buf.Bytes()
+	oh.StaticFileHandler.Content = buf.Bytes()
 
-	return oh.filehandler.Open(name, mode)
-}
-
-func (oh *OrgHandler) CreateChild(name string, child string) (int, error) {
-	return oh.filehandler.CreateChild(name, child)
-}
-
-func (oh *OrgHandler) Stat(name string) (protocol.QID, error) {
-	return oh.filehandler.Stat(name)
-}
-
-func (oh *OrgHandler) Length(name string) (uint64, error) {
-	return oh.filehandler.Length(name)
+	return oh.StaticFileHandler.Open(name, mode)
 }
 
 func (oh *OrgHandler) Wstat(name string, qid protocol.QID, length uint64) error {
@@ -407,10 +351,6 @@ func (oh *OrgHandler) Remove(name string) error {
 	return fmt.Errorf("A repo cannot be removed.")
 }
 
-func (oh *OrgHandler) Read(name string, offset int64, count int64) ([]byte, error) {
-	return oh.filehandler.Read(name, offset, count)
-}
-
 func (oh *OrgHandler) Write(name string, offset int64, buf []byte) (int64, error) {
 	return 0, fmt.Errorf("Modifying users is not supported.")
 }
@@ -418,12 +358,8 @@ func (oh *OrgHandler) Write(name string, offset int64, buf []byte) (int64, error
 // RepoOverviewHandler handles the displaying and updating of the
 //  repo.md for a repo.
 type RepoOverviewHandler struct {
-	filehandler *dynamic.StaticFileHandler
-	mu          sync.Mutex
-}
-
-func (roh *RepoOverviewHandler) WalkChild(name string, child string) (int, error) {
-	return roh.filehandler.WalkChild(name, child)
+	dynamic.StaticFileHandler
+	mu sync.Mutex
 }
 
 func (roh *RepoOverviewHandler) Open(name string, mode protocol.Mode) error {
@@ -451,21 +387,9 @@ func (roh *RepoOverviewHandler) Open(name string, mode protocol.Mode) error {
 		return err
 	}
 
-	roh.filehandler.Content = buf.Bytes()
+	roh.StaticFileHandler.Content = buf.Bytes()
 
-	return roh.filehandler.Open(name, mode)
-}
-
-func (roh *RepoOverviewHandler) CreateChild(name string, child string) (int, error) {
-	return roh.filehandler.CreateChild(name, child)
-}
-
-func (roh *RepoOverviewHandler) Stat(name string) (protocol.QID, error) {
-	return roh.filehandler.Stat(name)
-}
-
-func (roh *RepoOverviewHandler) Length(name string) (uint64, error) {
-	return roh.filehandler.Length(name)
+	return roh.StaticFileHandler.Open(name, mode)
 }
 
 func (roh *RepoOverviewHandler) Wstat(name string, qid protocol.QID, length uint64) error {
@@ -474,10 +398,6 @@ func (roh *RepoOverviewHandler) Wstat(name string, qid protocol.QID, length uint
 
 func (roh *RepoOverviewHandler) Remove(name string) error {
 	return fmt.Errorf("A repo cannot be removed.")
-}
-
-func (roh *RepoOverviewHandler) Read(name string, offset int64, count int64) ([]byte, error) {
-	return roh.filehandler.Read(name, offset, count)
 }
 
 func (roh *RepoOverviewHandler) Write(name string, offset int64, buf []byte) (int64, error) {

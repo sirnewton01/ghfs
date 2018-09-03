@@ -132,7 +132,7 @@ the expected format and make it easy to modify.
 `)}),
 		})
 
-	d.AddFileEntry("/repos", &ReposHandler{&dynamic.BasicDirHandler{d, nil}})
+	d.AddFileEntry("/repos", &ReposHandler{dynamic.BasicDirHandler{d, nil}})
 
 	server = d
 
