@@ -152,14 +152,6 @@ func (ih *IssuesHandler) Open(name string, mode protocol.Mode) error {
 	return nil
 }
 
-func (ih *IssuesHandler) CreateChild(name string, child string) (int, error) {
-	return -1, fmt.Errorf("Creating an issue is not supported")
-}
-
-func (ih *IssuesHandler) Remove(name string) error {
-	return fmt.Errorf("Removing issues ins't supported.")
-}
-
 func (ih *IssuesHandler) Read(name string, offset int64, count int64) ([]byte, error) {
 	if offset == 0 && count > 0 {
 		repo := path.Base(path.Dir(name))

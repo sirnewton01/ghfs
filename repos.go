@@ -93,18 +93,6 @@ func (rh *ReposHandler) WalkChild(name string, child string) (int, error) {
 	return idx, err
 }
 
-func (rh *ReposHandler) CreateChild(name string, child string) (int, error) {
-	return -1, fmt.Errorf("Creating organizations or users is not supported.")
-}
-
-func (rh *ReposHandler) Wstat(name string, dir protocol.Dir) error {
-	return fmt.Errorf("Unsupported operation")
-}
-
-func (rh *ReposHandler) Remove(name string) error {
-	return fmt.Errorf("The repos folder cannot be removed")
-}
-
 func (rh *ReposHandler) Read(name string, offset int64, count int64) ([]byte, error) {
 	if offset == 0 && count > 0 && currentUser != "" {
 		_, err := NewOwnerHandler(currentUser)
@@ -230,18 +218,6 @@ func (oh *OwnerHandler) refresh(owner string) error {
 	return nil
 }
 
-func (oh *OwnerHandler) CreateChild(name string, child string) (int, error) {
-	return -1, fmt.Errorf("Creating repos is not supported.")
-}
-
-func (oh *OwnerHandler) Wstat(name string, dir protocol.Dir) error {
-	return fmt.Errorf("Unsupported operation")
-}
-
-func (oh *OwnerHandler) Remove(name string) error {
-	return fmt.Errorf("An owner cannot be removed.")
-}
-
 func (oh *OwnerHandler) Read(name string, offset int64, count int64) ([]byte, error) {
 	if offset == 0 && count > 0 {
 		err := oh.refresh(path.Base(name))
@@ -296,18 +272,6 @@ func (uh *UserHandler) Open(name string, mode protocol.Mode) error {
 	return uh.StaticFileHandler.Open(name, mode)
 }
 
-func (uh *UserHandler) Wstat(name string, dir protocol.Dir) error {
-	return fmt.Errorf("Unsupported operation")
-}
-
-func (uh *UserHandler) Remove(name string) error {
-	return fmt.Errorf("A repo cannot be removed.")
-}
-
-func (uh *UserHandler) Write(name string, offset int64, buf []byte) (int64, error) {
-	return 0, fmt.Errorf("Modifying users is not supported.")
-}
-
 func NewOrgHandler(name string) {
 	server.AddFileEntry(path.Join("/repos", name, "0org.md"), &UserHandler{StaticFileHandler: dynamic.StaticFileHandler{[]byte{}}})
 }
@@ -341,18 +305,6 @@ func (oh *OrgHandler) Open(name string, mode protocol.Mode) error {
 	oh.StaticFileHandler.Content = buf.Bytes()
 
 	return oh.StaticFileHandler.Open(name, mode)
-}
-
-func (oh *OrgHandler) Wstat(name string, dir protocol.Dir) error {
-	return fmt.Errorf("Unsupported operation")
-}
-
-func (oh *OrgHandler) Remove(name string) error {
-	return fmt.Errorf("A repo cannot be removed.")
-}
-
-func (oh *OrgHandler) Write(name string, offset int64, buf []byte) (int64, error) {
-	return 0, fmt.Errorf("Modifying users is not supported.")
 }
 
 // RepoOverviewHandler handles the displaying and updating of the
@@ -390,14 +342,6 @@ func (roh *RepoOverviewHandler) Open(name string, mode protocol.Mode) error {
 	roh.StaticFileHandler.Content = buf.Bytes()
 
 	return roh.StaticFileHandler.Open(name, mode)
-}
-
-func (roh *RepoOverviewHandler) Wstat(name string, dir protocol.Dir) error {
-	return fmt.Errorf("Unsupported operation")
-}
-
-func (roh *RepoOverviewHandler) Remove(name string) error {
-	return fmt.Errorf("A repo cannot be removed.")
 }
 
 func (roh *RepoOverviewHandler) Write(name string, offset int64, buf []byte) (int64, error) {
