@@ -97,7 +97,7 @@ func (rh *ReposHandler) CreateChild(name string, child string) (int, error) {
 	return -1, fmt.Errorf("Creating organizations or users is not supported.")
 }
 
-func (rh *ReposHandler) Wstat(name string, qid protocol.QID, length uint64) error {
+func (rh *ReposHandler) Wstat(name string, dir protocol.Dir) error {
 	return fmt.Errorf("Unsupported operation")
 }
 
@@ -234,7 +234,7 @@ func (oh *OwnerHandler) CreateChild(name string, child string) (int, error) {
 	return -1, fmt.Errorf("Creating repos is not supported.")
 }
 
-func (oh *OwnerHandler) Wstat(name string, qid protocol.QID, length uint64) error {
+func (oh *OwnerHandler) Wstat(name string, dir protocol.Dir) error {
 	return fmt.Errorf("Unsupported operation")
 }
 
@@ -296,7 +296,7 @@ func (uh *UserHandler) Open(name string, mode protocol.Mode) error {
 	return uh.StaticFileHandler.Open(name, mode)
 }
 
-func (uh *UserHandler) Wstat(name string, qid protocol.QID, length uint64) error {
+func (uh *UserHandler) Wstat(name string, dir protocol.Dir) error {
 	return fmt.Errorf("Unsupported operation")
 }
 
@@ -343,7 +343,7 @@ func (oh *OrgHandler) Open(name string, mode protocol.Mode) error {
 	return oh.StaticFileHandler.Open(name, mode)
 }
 
-func (oh *OrgHandler) Wstat(name string, qid protocol.QID, length uint64) error {
+func (oh *OrgHandler) Wstat(name string, dir protocol.Dir) error {
 	return fmt.Errorf("Unsupported operation")
 }
 
@@ -392,7 +392,7 @@ func (roh *RepoOverviewHandler) Open(name string, mode protocol.Mode) error {
 	return roh.StaticFileHandler.Open(name, mode)
 }
 
-func (roh *RepoOverviewHandler) Wstat(name string, qid protocol.QID, length uint64) error {
+func (roh *RepoOverviewHandler) Wstat(name string, dir protocol.Dir) error {
 	return fmt.Errorf("Unsupported operation")
 }
 

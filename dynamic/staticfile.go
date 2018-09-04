@@ -26,16 +26,12 @@ func (f *StaticFileHandler) CreateChild(name string, child string) (int, error) 
 	return -1, fmt.Errorf("Creation is not supported")
 }
 
-func (f *StaticFileHandler) Stat(name string) (protocol.QID, error) {
+func (f *StaticFileHandler) Stat(name string) (protocol.Dir, error) {
 	// There's only one version and it is always a file
-	return protocol.QID{Version: 0, Type: protocol.QTFILE}, nil
+	return protocol.Dir{QID: protocol.QID{Version: 0, Type: protocol.QTFILE}, Length: uint64(len(f.Content))}, nil
 }
 
-func (f *StaticFileHandler) Length(name string) (uint64, error) {
-	return uint64(len(f.Content)), nil
-}
-
-func (f *StaticFileHandler) Wstat(name string, qid protocol.QID, length uint64) error {
+func (f *StaticFileHandler) Wstat(name string, qid protocol.Dir) error {
 	return fmt.Errorf("Wstat is not supported")
 }
 

@@ -20,9 +20,8 @@ type FileHandler interface {
 	WalkChild(name string, child string) (int, error)
 	Open(name string, mode protocol.Mode) error
 	CreateChild(name string, child string) (int, error)
-	Stat(name string) (protocol.QID, error)
-	Length(name string) (uint64, error)
-	Wstat(name string, qid protocol.QID, length uint64) error
+	Stat(name string) (protocol.Dir, error)
+	Wstat(name string, dir protocol.Dir) error
 	Remove(name string) error
 	Read(name string, offset int64, count int64) ([]byte, error)
 	Write(name string, offset int64, buf []byte) (int64, error)
@@ -159,15 +158,15 @@ func (s *Server) Rattach(fid protocol.FID, afid protocol.FID, uname string, anam
 	// Register this new FID for this entry
 	s.files[idx].addFid(fid)
 
-	qid, err := s.files[idx].Handler.Stat(aname)
+	dir, err := s.files[idx].Handler.Stat(aname)
 	if err != nil {
 		return protocol.QID{}, err
 	}
 
 	// Handler doesn't specify the path, we can fill it in
-	qid.Path = uint64(idx)
+	dir.QID.Path = uint64(idx)
 
-	return qid, nil
+	return dir.QID, nil
 }
 
 func (s *Server) Rflush(o protocol.Tag) error {
@@ -199,10 +198,12 @@ func (s *Server) Rwalk(fid protocol.FID, newfid protocol.FID, paths []string) ([
 		}
 
 		parent = &s.files[idx2]
-		q[idx], err = parent.Handler.Stat(parent.Name)
+		dir, err := parent.Handler.Stat(parent.Name)
 		if err != nil {
 			return []protocol.QID{}, err
 		}
+
+		q[idx] = dir.QID
 
 		// Assign the new FID to the last file
 		if idx == len(paths)-1 {
@@ -221,19 +222,19 @@ func (s *Server) Ropen(fid protocol.FID, mode protocol.Mode) (protocol.QID, prot
 	}
 
 	f := s.files[idx]
-	qid, err := f.Handler.Stat(f.Name)
+	dir, err := f.Handler.Stat(f.Name)
 
 	if err != nil {
 		return protocol.QID{}, 0, err
 	}
-	qid.Path = uint64(idx)
+	dir.QID.Path = uint64(idx)
 
 	err = f.Handler.Open(f.Name, mode)
 	if err != nil {
 		return protocol.QID{}, 0, err
 	}
 
-	return qid, protocol.MaxSize(s.iounit), nil
+	return dir.QID, protocol.MaxSize(s.iounit), nil
 }
 
 func (s *Server) Rcreate(fid protocol.FID, name string, perm protocol.Perm, mode protocol.Mode) (protocol.QID, protocol.MaxSize, error) {
@@ -249,12 +250,12 @@ func (s *Server) Rcreate(fid protocol.FID, name string, perm protocol.Perm, mode
 	}
 
 	child := s.files[idx]
-	qid, err := child.Handler.Stat(child.Name)
+	dir, err := child.Handler.Stat(child.Name)
 	if err != nil {
 		return protocol.QID{}, 0, err
 	}
-	qid.Path = uint64(idx)
-	return qid, protocol.MaxSize(s.iounit), nil
+	dir.QID.Path = uint64(idx)
+	return dir.QID, protocol.MaxSize(s.iounit), nil
 }
 
 func (s *Server) Rclunk(fid protocol.FID) error {
@@ -276,33 +277,24 @@ func (s *Server) Rstat(fid protocol.FID) ([]byte, error) {
 	}
 
 	f := s.files[idx]
-	qid, err := f.Handler.Stat(f.Name)
+	dir, err := f.Handler.Stat(f.Name)
 	if err != nil {
 		return []byte{}, fmt.Errorf("File not found")
 	}
-	qid.Path = uint64(idx)
+	dir.QID.Path = uint64(idx)
 
-	d := &protocol.Dir{}
-	d.QID = qid
-
-	d.Mode = 0755
-	if qid.Type&protocol.QTDIR != 0 {
-		d.Mode = d.Mode | protocol.DMDIR
+	dir.Mode = 0755
+	if dir.QID.Type&protocol.QTDIR != 0 {
+		dir.Mode = dir.Mode | protocol.DMDIR
 	}
 
-	d.Length, err = f.Handler.Length(f.Name)
-	if err != nil {
-		return []byte{}, fmt.Errorf("File not found")
-	}
-	d.Name = path.Base(f.Name)
+	dir.Name = path.Base(f.Name)
 	if f.Name == "" {
-		d.Name = "/"
+		dir.Name = "/"
 	}
-	d.User = "none"
-	d.Group = "none"
 
 	var b bytes.Buffer
-	protocol.Marshaldir(&b, *d)
+	protocol.Marshaldir(&b, dir)
 	return b.Bytes(), nil
 }
 
@@ -319,7 +311,7 @@ func (s *Server) Rwstat(fid protocol.FID, b []byte) error {
 	}
 
 	f := s.files[idx]
-	return f.Handler.Wstat(f.Name, dir.QID, dir.Length)
+	return f.Handler.Wstat(f.Name, dir)
 }
 
 func (s *Server) Rremove(fid protocol.FID) error {

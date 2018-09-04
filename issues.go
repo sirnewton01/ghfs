@@ -112,7 +112,7 @@ func (ih *IssuesHandler) WalkChild(name string, child string) (int, error) {
 			return idx, err
 		}
 
-		NewIssue(server, owner, repo, *issue.Number)
+		NewIssue(server, owner, repo, issue)
 	}
 
 	return ih.BasicDirHandler.WalkChild(name, child)
@@ -134,7 +134,7 @@ func (ih *IssuesHandler) refresh(owner string, repo string) error {
 		}
 
 		for _, issue := range issues {
-			NewIssue(server, owner, repo, *issue.Number)
+			NewIssue(server, owner, repo, issue)
 			ih.filter[fmt.Sprintf("/repos/%s/%s/issues/%d.md", owner, repo, *issue.Number)] = true
 		}
 
@@ -222,24 +222,20 @@ func (ic *IssuesCtl) CreateChild(name string, child string) (int, error) {
 	return -1, fmt.Errorf("Creating a child of an issue filter.md is not supported")
 }
 
-func (ic *IssuesCtl) Stat(name string) (protocol.QID, error) {
-	// There's only one version and it is always a file
-	return protocol.QID{Version: 0, Type: protocol.QTFILE}, nil
-}
-
-func (ic *IssuesCtl) Length(name string) (uint64, error) {
+func (ic *IssuesCtl) Stat(name string) (protocol.Dir, error) {
 	ic.mutex.Lock()
 	defer ic.mutex.Unlock()
 
-	return uint64(ic.readbuf.Len()), nil
+	// There's only one version and it is always a file
+	return protocol.Dir{QID: protocol.QID{Version: 0, Type: protocol.QTFILE}, Length: uint64(ic.readbuf.Len())}, nil
 }
 
-func (ic *IssuesCtl) Wstat(name string, qid protocol.QID, length uint64) error {
+func (ic *IssuesCtl) Wstat(name string, dir protocol.Dir) error {
 	ic.mutex.Lock()
 	defer ic.mutex.Unlock()
 
 	// TODO catch potential panic
-	ic.writebuf.Truncate(int(length))
+	ic.writebuf.Truncate(int(dir.Length))
 	return nil
 }
 
@@ -295,12 +291,30 @@ func (ic *IssuesCtl) Write(name string, offset int64, buf []byte) (int64, error)
 type Issue struct {
 	number  int
 	readbuf *bytes.Buffer
+	mtime   time.Time
 	mutex   sync.Mutex
 }
 
-func NewIssue(server *dynamic.Server, owner string, repo string, number int) {
-	issue := &Issue{number: number, readbuf: &bytes.Buffer{}}
-	server.AddFileEntry(path.Join("/repos", owner, repo, "issues", fmt.Sprintf("%d.md", number)), issue)
+func NewIssue(server *dynamic.Server, owner string, repo string, i *github.Issue) {
+	issue := &Issue{number: *i.Number, readbuf: &bytes.Buffer{}}
+
+	issue.mtime = i.GetUpdatedAt()
+	issueMarkdown.Execute(issue.readbuf, *i)
+	// TODO consider comments too that can change the length and mtime of the issue
+
+	comments, _, _ := client.Issues.ListComments(context.Background(), owner, repo, *i.Number, nil)
+	for _, comment := range comments {
+		if issue.mtime.Before(comment.GetUpdatedAt()) {
+			issue.mtime = comment.GetUpdatedAt()
+		}
+		bb := bytes.Buffer{}
+		err := commentMarkdown.Execute(&bb, *comment)
+		if err == nil {
+			issue.readbuf.Write(bb.Bytes())
+		}
+	}
+
+	server.AddFileEntry(path.Join("/repos", owner, repo, "issues", fmt.Sprintf("%d.md", *i.Number)), issue)
 }
 
 func (i *Issue) Read(name string, offset int64, count int64) ([]byte, error) {
@@ -317,12 +331,16 @@ func (i *Issue) Read(name string, offset int64, count int64) ([]byte, error) {
 		if err != nil {
 			return []byte{}, err
 		}
+		i.mtime = issue.GetUpdatedAt()
 		err = issueMarkdown.Execute(i.readbuf, *issue)
 		if err != nil {
 			return []byte{}, err
 		}
 		comments, _, err := client.Issues.ListComments(context.Background(), owner, repo, i.number, nil)
 		for _, comment := range comments {
+			if i.mtime.Before(comment.GetUpdatedAt()) {
+				i.mtime = comment.GetUpdatedAt()
+			}
 			bb := bytes.Buffer{}
 			err := commentMarkdown.Execute(&bb, *comment)
 			if err != nil {
@@ -330,7 +348,6 @@ func (i *Issue) Read(name string, offset int64, count int64) ([]byte, error) {
 			}
 			i.readbuf.Write(bb.Bytes())
 		}
-
 	}
 
 	if offset >= int64(i.readbuf.Len()) {
@@ -360,19 +377,20 @@ func (i *Issue) CreateChild(name string, child string) (int, error) {
 	return -1, fmt.Errorf("Creating a child of an issue is not supported")
 }
 
-func (i *Issue) Stat(name string) (protocol.QID, error) {
-	// There's only one version and it is always a file
-	return protocol.QID{Version: 0, Type: protocol.QTFILE}, nil
-}
-
-func (i *Issue) Length(name string) (uint64, error) {
+func (i *Issue) Stat(name string) (protocol.Dir, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
-	return uint64(i.readbuf.Len()), nil
+	t := i.mtime.Unix()
+	if i.mtime.IsZero() {
+		t = 0
+	}
+
+	// There's only one version and it is always a file
+	return protocol.Dir{QID: protocol.QID{Version: 0, Type: protocol.QTFILE}, Length: uint64(i.readbuf.Len()), Mtime: uint32(t)}, nil
 }
 
-func (i *Issue) Wstat(name string, qid protocol.QID, length uint64) error {
+func (i *Issue) Wstat(name string, dir protocol.Dir) error {
 	return fmt.Errorf("Truncation of issues isn't supported.")
 }
 

@@ -37,11 +37,16 @@ func (b *BasicDirHandler) CreateChild(name string, child string) (int, error) {
 	return -1, fmt.Errorf("Creation is not supported")
 }
 
-func (b *BasicDirHandler) Stat(name string) (protocol.QID, error) {
-	return protocol.QID{Version: 0, Type: protocol.QTDIR}, nil
+func (b *BasicDirHandler) Stat(name string) (protocol.Dir, error) {
+	contents, err := b.getDir(name, -1)
+	if err != nil {
+		return protocol.Dir{}, err
+	}
+
+	return protocol.Dir{QID: protocol.QID{Version: 0, Type: protocol.QTDIR}, Length: uint64(len(contents))}, nil
 }
 
-func (b *BasicDirHandler) getDir(name string, length bool, max int64) ([]byte, error) {
+func (b *BasicDirHandler) getDir(name string, max int64) ([]byte, error) {
 	matches := b.S.MatchFiles(func(f *FileEntry) bool {
 		ischild := strings.HasPrefix(f.Name, name+"/") && strings.Count(name, "/") == strings.Count(f.Name, "/")-1
 		if !ischild {
@@ -62,26 +67,17 @@ func (b *BasicDirHandler) getDir(name string, length bool, max int64) ([]byte, e
 
 		var b bytes.Buffer
 		dir := protocol.Dir{}
-		qid, err := match.Handler.Stat(match.Name)
+		dir, err := match.Handler.Stat(match.Name)
 		if err != nil {
 			return []byte{}, err
 		}
-		qid.Path = uint64(idx)
-		dir.QID = qid
+		dir.QID.Path = uint64(idx)
 
 		m := 0755
 		if dir.QID.Type&protocol.QTDIR != 0 {
 			m = m | protocol.DMDIR
 		}
 		dir.Mode = uint32(m)
-
-		if length {
-			l, err := match.Handler.Length(match.Name)
-			if err != nil {
-				return []byte{}, err
-			}
-			dir.Length = l
-		}
 		dir.Name = path.Base(match.Name)
 
 		protocol.Marshaldir(&b, dir)
@@ -94,16 +90,7 @@ func (b *BasicDirHandler) getDir(name string, length bool, max int64) ([]byte, e
 	return bb.Bytes(), nil
 }
 
-func (b *BasicDirHandler) Length(name string) (uint64, error) {
-	contents, err := b.getDir(name, false, -1)
-	if err != nil {
-		return 0, err
-	}
-
-	return uint64(len(contents)), nil
-}
-
-func (b *BasicDirHandler) Wstat(name string, qid protocol.QID, length uint64) error {
+func (b *BasicDirHandler) Wstat(name string, dir protocol.Dir) error {
 	return fmt.Errorf("Wstat is not supported")
 }
 
@@ -112,7 +99,7 @@ func (b *BasicDirHandler) Remove(name string) error {
 }
 
 func (b *BasicDirHandler) Read(name string, offset int64, count int64) ([]byte, error) {
-	content, err := b.getDir(name, true, offset+count)
+	content, err := b.getDir(name, offset+count)
 	if err != nil {
 		return []byte{}, err
 	}
