@@ -93,7 +93,7 @@ func (rh *ReposHandler) WalkChild(name string, child string) (int, error) {
 	return idx, err
 }
 
-func (rh *ReposHandler) Read(name string, offset int64, count int64) ([]byte, error) {
+func (rh *ReposHandler) Read(name string, fid protocol.FID, offset int64, count int64) ([]byte, error) {
 	if offset == 0 && count > 0 && currentUser != "" {
 		_, err := NewOwnerHandler(currentUser)
 		if err != nil {
@@ -128,10 +128,10 @@ func (rh *ReposHandler) Read(name string, offset int64, count int64) ([]byte, er
 		}
 
 	}
-	return rh.BasicDirHandler.Read(name, offset, count)
+	return rh.BasicDirHandler.Read(name, fid, offset, count)
 }
 
-func (rh *ReposHandler) Write(name string, offset int64, buf []byte) (int64, error) {
+func (rh *ReposHandler) Write(name string, fid protocol.FID, offset int64, buf []byte) (int64, error) {
 	return 0, fmt.Errorf("Creating a new user or organization is not supported.")
 }
 
@@ -218,7 +218,7 @@ func (oh *OwnerHandler) refresh(owner string) error {
 	return nil
 }
 
-func (oh *OwnerHandler) Read(name string, offset int64, count int64) ([]byte, error) {
+func (oh *OwnerHandler) Read(name string, fid protocol.FID, offset int64, count int64) ([]byte, error) {
 	if offset == 0 && count > 0 {
 		err := oh.refresh(path.Base(name))
 		if err != nil {
@@ -226,10 +226,10 @@ func (oh *OwnerHandler) Read(name string, offset int64, count int64) ([]byte, er
 		}
 	}
 
-	return oh.BasicDirHandler.Read(name, offset, count)
+	return oh.BasicDirHandler.Read(name, fid, offset, count)
 }
 
-func (oh *OwnerHandler) Write(name string, offset int64, buf []byte) (int64, error) {
+func (oh *OwnerHandler) Write(name string, fid protocol.FID, offset int64, buf []byte) (int64, error) {
 	return 0, fmt.Errorf("Creating repos is not supported.")
 }
 
@@ -248,7 +248,7 @@ func (uh *UserHandler) WalkChild(name string, child string) (int, error) {
 	return uh.StaticFileHandler.WalkChild(name, child)
 }
 
-func (uh *UserHandler) Open(name string, mode protocol.Mode) error {
+func (uh *UserHandler) Open(name string, fid protocol.FID, mode protocol.Mode) error {
 	user := path.Base(path.Dir(name))
 
 	log.Printf("Reading user %s\n", user)
@@ -269,7 +269,7 @@ func (uh *UserHandler) Open(name string, mode protocol.Mode) error {
 
 	uh.StaticFileHandler.Content = buf.Bytes()
 
-	return uh.StaticFileHandler.Open(name, mode)
+	return uh.StaticFileHandler.Open(name, fid, mode)
 }
 
 func NewOrgHandler(name string) {
@@ -283,7 +283,7 @@ type OrgHandler struct {
 	mu sync.Mutex
 }
 
-func (oh *OrgHandler) Open(name string, mode protocol.Mode) error {
+func (oh *OrgHandler) Open(name string, fid protocol.FID, mode protocol.Mode) error {
 	user := path.Base(path.Dir(name))
 
 	log.Printf("Reading user %s\n", user)
@@ -304,7 +304,7 @@ func (oh *OrgHandler) Open(name string, mode protocol.Mode) error {
 
 	oh.StaticFileHandler.Content = buf.Bytes()
 
-	return oh.StaticFileHandler.Open(name, mode)
+	return oh.StaticFileHandler.Open(name, fid, mode)
 }
 
 // RepoOverviewHandler handles the displaying and updating of the
@@ -314,7 +314,7 @@ type RepoOverviewHandler struct {
 	mu sync.Mutex
 }
 
-func (roh *RepoOverviewHandler) Open(name string, mode protocol.Mode) error {
+func (roh *RepoOverviewHandler) Open(name string, fid protocol.FID, mode protocol.Mode) error {
 	owner := path.Base(path.Dir(path.Dir(name)))
 	repo := path.Base(path.Dir(name))
 
@@ -341,10 +341,10 @@ func (roh *RepoOverviewHandler) Open(name string, mode protocol.Mode) error {
 
 	roh.StaticFileHandler.Content = buf.Bytes()
 
-	return roh.StaticFileHandler.Open(name, mode)
+	return roh.StaticFileHandler.Open(name, fid, mode)
 }
 
-func (roh *RepoOverviewHandler) Write(name string, offset int64, buf []byte) (int64, error) {
+func (roh *RepoOverviewHandler) Write(name string, fid protocol.FID, offset int64, buf []byte) (int64, error) {
 	/*ic.mutex.Lock()
 	  defer ic.mutex.Unlock()
 

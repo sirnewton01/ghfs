@@ -18,7 +18,7 @@ func (f *StaticFileHandler) WalkChild(name string, child string) (int, error) {
 	return -1, fmt.Errorf("Children are not supported")
 }
 
-func (f *StaticFileHandler) Open(name string, mode protocol.Mode) error {
+func (f *StaticFileHandler) Open(name string, fid protocol.FID, mode protocol.Mode) error {
 	return nil
 }
 
@@ -39,7 +39,7 @@ func (f *StaticFileHandler) Remove(name string) error {
 	return fmt.Errorf("Remove is not supported")
 }
 
-func (f *StaticFileHandler) Read(name string, offset int64, count int64) ([]byte, error) {
+func (f *StaticFileHandler) Read(name string, fid protocol.FID, offset int64, count int64) ([]byte, error) {
 	if offset >= int64(len(f.Content)) {
 		return []byte{}, nil // TODO should an error be returned?
 	}
@@ -51,6 +51,10 @@ func (f *StaticFileHandler) Read(name string, offset int64, count int64) ([]byte
 	return f.Content[offset : offset+count], nil
 }
 
-func (f *StaticFileHandler) Write(name string, offset int64, buf []byte) (int64, error) {
+func (f *StaticFileHandler) Write(name string, fid protocol.FID, offset int64, buf []byte) (int64, error) {
 	return 0, fmt.Errorf("Write is not supported")
+}
+
+func (f *StaticFileHandler) Clunk(name string, fid protocol.FID) error {
+	return nil
 }

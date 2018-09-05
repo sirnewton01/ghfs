@@ -18,13 +18,14 @@ var (
 // A file handler defines the behaviour of one or more file entries
 type FileHandler interface {
 	WalkChild(name string, child string) (int, error)
-	Open(name string, mode protocol.Mode) error
+	Open(name string, fid protocol.FID, mode protocol.Mode) error
 	CreateChild(name string, child string) (int, error)
 	Stat(name string) (protocol.Dir, error)
 	Wstat(name string, dir protocol.Dir) error
 	Remove(name string) error
-	Read(name string, offset int64, count int64) ([]byte, error)
-	Write(name string, offset int64, buf []byte) (int64, error)
+	Read(name string, fid protocol.FID, offset int64, count int64) ([]byte, error)
+	Write(name string, fid protocol.FID, offset int64, buf []byte) (int64, error)
+	Clunk(name string, fid protocol.FID) error
 }
 
 // A file entry is a location in the filesystem tree with a handler
@@ -229,7 +230,7 @@ func (s *Server) Ropen(fid protocol.FID, mode protocol.Mode) (protocol.QID, prot
 	}
 	dir.QID.Path = uint64(idx)
 
-	err = f.Handler.Open(f.Name, mode)
+	err = f.Handler.Open(f.Name, fid, mode)
 	if err != nil {
 		return protocol.QID{}, 0, err
 	}
@@ -265,6 +266,10 @@ func (s *Server) Rclunk(fid protocol.FID) error {
 	}
 
 	f := &s.files[idx]
+	err := f.Handler.Clunk(f.Name, fid)
+	if err != nil {
+		return err
+	}
 	f.removeFid(fid)
 
 	return nil
@@ -337,7 +342,7 @@ func (s *Server) Rread(fid protocol.FID, o protocol.Offset, c protocol.Count) ([
 	}
 
 	f := s.files[idx]
-	return f.Handler.Read(f.Name, int64(o), int64(c))
+	return f.Handler.Read(f.Name, fid, int64(o), int64(c))
 }
 
 func (s *Server) Rwrite(fid protocol.FID, o protocol.Offset, b []byte) (protocol.Count, error) {
@@ -347,7 +352,7 @@ func (s *Server) Rwrite(fid protocol.FID, o protocol.Offset, b []byte) (protocol
 	}
 
 	f := s.files[idx]
-	c, err := f.Handler.Write(f.Name, int64(o), b)
+	c, err := f.Handler.Write(f.Name, fid, int64(o), b)
 	return protocol.Count(c), err
 }
 

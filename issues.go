@@ -148,11 +148,11 @@ func (ih *IssuesHandler) refresh(owner string, repo string) error {
 	return nil
 }
 
-func (ih *IssuesHandler) Open(name string, mode protocol.Mode) error {
+func (ih *IssuesHandler) Open(name string, fid protocol.FID, mode protocol.Mode) error {
 	return nil
 }
 
-func (ih *IssuesHandler) Read(name string, offset int64, count int64) ([]byte, error) {
+func (ih *IssuesHandler) Read(name string, fid protocol.FID, offset int64, count int64) ([]byte, error) {
 	if offset == 0 && count > 0 {
 		repo := path.Base(path.Dir(name))
 		owner := path.Base(path.Dir(path.Dir(name)))
@@ -161,12 +161,13 @@ func (ih *IssuesHandler) Read(name string, offset int64, count int64) ([]byte, e
 			return []byte{}, err
 		}
 	}
-	return ih.BasicDirHandler.Read(name, offset, count)
+	return ih.BasicDirHandler.Read(name, fid, offset, count)
 }
 
 type IssuesCtl struct {
 	ih       *IssuesHandler
 	readbuf  *bytes.Buffer
+	writefid protocol.FID
 	writebuf *bytes.Buffer
 	mutex    sync.Mutex
 }
@@ -190,22 +191,42 @@ func (ic *IssuesCtl) WalkChild(name string, child string) (int, error) {
 	return -1, fmt.Errorf("No children of the issues filter.md file")
 }
 
-func (ic *IssuesCtl) Open(name string, mode protocol.Mode) error {
+func (ic *IssuesCtl) Open(name string, fid protocol.FID, mode protocol.Mode) error {
 	ic.mutex.Lock()
 	defer ic.mutex.Unlock()
 
-	ic.readbuf = &bytes.Buffer{}
-	ic.writebuf = &bytes.Buffer{}
+	if mode&protocol.ORDWR != 0 || mode&protocol.OWRITE != 0 {
+		if ic.writefid != 0 {
+			return fmt.Errorf("Filter doesn't support concurrent writes")
+		}
 
-	isf := IssuesFilter{}
-	isf.Mentioned = ic.ih.options.Mentioned
-	isf.State = ic.ih.options.State
-	isf.Assignee = ic.ih.options.Assignee
-	isf.Creator = ic.ih.options.Creator
-	isf.Labels = ic.ih.options.Labels
-	isf.Since = ic.ih.options.Since
+		ic.writefid = fid
+		ic.writebuf = &bytes.Buffer{}
 
-	issueFilterMarkdown.Execute(ic.readbuf, isf)
+		isf := IssuesFilter{}
+		isf.Mentioned = ic.ih.options.Mentioned
+		isf.State = ic.ih.options.State
+		isf.Assignee = ic.ih.options.Assignee
+		isf.Creator = ic.ih.options.Creator
+		isf.Labels = ic.ih.options.Labels
+		isf.Since = ic.ih.options.Since
+
+		issueFilterMarkdown.Execute(ic.writebuf, isf)
+	}
+
+	if mode == protocol.OREAD {
+		ic.readbuf = &bytes.Buffer{}
+
+		isf := IssuesFilter{}
+		isf.Mentioned = ic.ih.options.Mentioned
+		isf.State = ic.ih.options.State
+		isf.Assignee = ic.ih.options.Assignee
+		isf.Creator = ic.ih.options.Creator
+		isf.Labels = ic.ih.options.Labels
+		isf.Since = ic.ih.options.Since
+
+		issueFilterMarkdown.Execute(ic.readbuf, isf)
+	}
 
 	return nil
 }
@@ -226,7 +247,6 @@ func (ic *IssuesCtl) Wstat(name string, dir protocol.Dir) error {
 	ic.mutex.Lock()
 	defer ic.mutex.Unlock()
 
-	// TODO catch potential panic
 	ic.writebuf.Truncate(int(dir.Length))
 	return nil
 }
@@ -235,7 +255,7 @@ func (ic *IssuesCtl) Remove(name string) error {
 	return fmt.Errorf("Removing issues filter.md isn't supported.")
 }
 
-func (ic *IssuesCtl) Read(name string, offset int64, count int64) ([]byte, error) {
+func (ic *IssuesCtl) Read(name string, fid protocol.FID, offset int64, count int64) ([]byte, error) {
 	ic.mutex.Lock()
 	defer ic.mutex.Unlock()
 
@@ -250,9 +270,13 @@ func (ic *IssuesCtl) Read(name string, offset int64, count int64) ([]byte, error
 	return ic.readbuf.Bytes()[offset : offset+count], nil
 }
 
-func (ic *IssuesCtl) Write(name string, offset int64, buf []byte) (int64, error) {
+func (ic *IssuesCtl) Write(name string, fid protocol.FID, offset int64, buf []byte) (int64, error) {
 	ic.mutex.Lock()
 	defer ic.mutex.Unlock()
+
+	if fid != ic.writefid {
+		return int64(len(buf)), nil
+	}
 
 	// TODO consider offset
 	length, err := ic.writebuf.Write(buf)
@@ -260,11 +284,22 @@ func (ic *IssuesCtl) Write(name string, offset int64, buf []byte) (int64, error)
 		return int64(length), err
 	}
 
-	// TODO handle multiple writes for the entire file
+	return int64(length), nil
+}
+
+func (ic *IssuesCtl) Clunk(name string, fid protocol.FID) error {
+	ic.mutex.Lock()
+	defer ic.mutex.Unlock()
+
+	if fid != ic.writefid {
+		return nil
+	}
+	ic.writefid = 0
+
 	isf := IssuesFilter{}
-	err = markform.Unmarshal(ic.writebuf.Bytes(), &isf)
+	err := markform.Unmarshal(ic.writebuf.Bytes(), &isf)
 	if err != nil {
-		return int64(length), err
+		return err
 	}
 
 	ic.ih.options.Milestone = isf.Milestone
@@ -275,9 +310,7 @@ func (ic *IssuesCtl) Write(name string, offset int64, buf []byte) (int64, error)
 	ic.ih.options.Labels = isf.Labels
 	ic.ih.options.Since = isf.Since
 
-	err = ic.ih.refresh(path.Base(path.Dir(path.Dir(path.Dir(name)))), path.Base(path.Dir(path.Dir(name))))
-
-	return int64(length), err
+	return ic.ih.refresh(path.Base(path.Dir(path.Dir(path.Dir(name)))), path.Base(path.Dir(path.Dir(name))))
 }
 
 type Issue struct {
@@ -309,7 +342,7 @@ func NewIssue(server *dynamic.Server, owner string, repo string, i *github.Issue
 	server.AddFileEntry(path.Join("/repos", owner, repo, "issues", fmt.Sprintf("%d.md", *i.Number)), issue)
 }
 
-func (i *Issue) Read(name string, offset int64, count int64) ([]byte, error) {
+func (i *Issue) Read(name string, fid protocol.FID, offset int64, count int64) ([]byte, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
@@ -353,7 +386,7 @@ func (i *Issue) Read(name string, offset int64, count int64) ([]byte, error) {
 	return i.readbuf.Bytes()[offset : offset+count], nil
 }
 
-func (i *Issue) Write(name string, offset int64, buf []byte) (int64, error) {
+func (i *Issue) Write(name string, fid protocol.FID, offset int64, buf []byte) (int64, error) {
 	return 0, fmt.Errorf("Writing issues is not supported")
 }
 
@@ -361,7 +394,7 @@ func (i *Issue) WalkChild(name string, child string) (int, error) {
 	return -1, fmt.Errorf("No children of issues")
 }
 
-func (i *Issue) Open(name string, mode protocol.Mode) error {
+func (i *Issue) Open(name string, fid protocol.FID, mode protocol.Mode) error {
 	return nil
 }
 
@@ -388,4 +421,8 @@ func (i *Issue) Wstat(name string, dir protocol.Dir) error {
 
 func (i *Issue) Remove(name string) error {
 	return fmt.Errorf("Removing issues isn't supported.")
+}
+
+func (i *Issue) Clunk(name string, fid protocol.FID) error {
+	return nil
 }

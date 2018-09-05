@@ -29,7 +29,7 @@ func (b *BasicDirHandler) WalkChild(name string, child string) (int, error) {
 	return idx, nil
 }
 
-func (b *BasicDirHandler) Open(name string, mode protocol.Mode) error {
+func (b *BasicDirHandler) Open(name string, fid protocol.FID, mode protocol.Mode) error {
 	return nil
 }
 
@@ -98,7 +98,7 @@ func (b *BasicDirHandler) Remove(name string) error {
 	return fmt.Errorf("Remove is not supported")
 }
 
-func (b *BasicDirHandler) Read(name string, offset int64, count int64) ([]byte, error) {
+func (b *BasicDirHandler) Read(name string, fid protocol.FID, offset int64, count int64) ([]byte, error) {
 	content, err := b.getDir(name, offset+count)
 	if err != nil {
 		return []byte{}, err
@@ -115,6 +115,10 @@ func (b *BasicDirHandler) Read(name string, offset int64, count int64) ([]byte, 
 	return content[offset : offset+count], nil
 }
 
-func (b *BasicDirHandler) Write(name string, offset int64, buf []byte) (int64, error) {
+func (b *BasicDirHandler) Write(name string, fid protocol.FID, offset int64, buf []byte) (int64, error) {
 	return 0, fmt.Errorf("Write is not supported")
+}
+
+func (b *BasicDirHandler) Clunk(name string, fid protocol.FID) error {
+	return nil
 }
