@@ -21,13 +21,18 @@ var (
 {{ markform .Form "Description" }}
 
 Created: {{ .Rest.CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
-Pushed: {{ .Rest.PushedAt.Format "2006-01-02T15:04:05Z07:00" }}
 
 Watchers: {{ .Rest.WatchersCount }}
+
 Stars: {{ .Rest.StargazersCount }}
+
 Forks: {{ .Rest.ForksCount }}
 
 Default branch: {{ .Rest.DefaultBranch }}
+
+Pushed: {{ .Rest.PushedAt.Format "2006-01-02T15:04:05Z07:00" }}
+
+Commit: {{ .Branch.GetCommit.SHA }} {{ .Branch.GetCommit.Commit.Author.Date.Format "2006-01-02T15:04:05Z07:00" }}
 
 git clone {{ .Rest.CloneURL }}
 `))
@@ -36,11 +41,13 @@ git clone {{ .Rest.CloneURL }}
 		`# {{ .Name }} - {{ .Login }}
 
 Location: {{ .Location }}
+
 Email: {{ .Email }}
 
 {{ .Bio }}
 
 Created: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+
 Updated: {{ .UpdatedAt.Format "2006-01-02T15:04:05Z07:00" }}
 
 Followers: {{ .Followers }}
@@ -50,11 +57,13 @@ Followers: {{ .Followers }}
 		`# {{ .Name }} - {{ .Login }}
 
 Location: {{ .Location }}
+
 Email: {{ .Email }}
 
 {{ .Description }}
 
 Created: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+
 Updated: {{ .UpdatedAt.Format "2006-01-02T15:04:05Z07:00" }}
 
 Followers: {{ .Followers }}
@@ -66,8 +75,9 @@ type repoMarkdownForm struct {
 }
 
 type repoMarkdownModel struct {
-	Form repoMarkdownForm
-	Rest *github.Repository
+	Form   repoMarkdownForm
+	Rest   *github.Repository
+	Branch *github.Branch
 }
 
 // ReposHandler handles the repos directory dynamically loading
@@ -328,7 +338,12 @@ func (roh *RepoOverviewHandler) Open(name string, fid protocol.FID, mode protoco
 		return err
 	}
 
-	model := repoMarkdownModel{Rest: r}
+	b, _, err := client.Repositories.GetBranch(context.Background(), owner, repo, *r.DefaultBranch)
+	if err != nil {
+		return err
+	}
+
+	model := repoMarkdownModel{Rest: r, Branch: b}
 	if r.Description != nil {
 		model.Form.Description = *r.Description
 	}

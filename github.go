@@ -62,7 +62,7 @@ func main() {
 
 	s, d, err := dynamic.NewServer(
 		[]dynamic.FileEntry{
-			dynamic.NewFileEntry("/README.md", &dynamic.StaticFileHandler{[]byte(`
+			dynamic.NewFileEntry("/0intro.md", &dynamic.StaticFileHandler{[]byte(`
 # GitHub File System
 
 Welcome to a file system view of GitHub. Using the site is easy once you learn a few tricks. Since GitHub is a very large site parts of the system are hidden and load on-demand. In particular, the repos directory is empty until you attempt to access something inside. You can "cd _ghfsdir_/repos/sirnewton01" or even "cd _ghfsdir_/repos/sirnewton01/ghfs". From there you will see start to see parts of the filesystem fill in.

@@ -19,22 +19,30 @@ import (
 
 var (
 	issueMarkdown = template.Must(template.New("issue").Funcs(funcMap).Parse(
-		`# {{ .Title  }} (#{{ .Number }})
+		`# Title = {{ .Title  }}___
 
-State: {{ .State }} - [{{ .User.Login }}](../../../{{ .User.Login }}) opened this issue {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }} - {{ .Comments }} comments
+State = {{ .State }}
 
-Assignee: {{if .Assignee}} [{{ .Assignee.Login }}](../../../{{ .Assignee.Login }}) {{else}} Not Assigned {{end}}
+OpenedBy: [{{ .User.Login }}](../../../{{ .User.Login }})
 
-Labels: {{range .Labels}}{{.Name}} {{end}}
+CreatedAt: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
 
-{{ markdown .Body }}
+Assignee = {{if .Assignee}} [{{ .Assignee.Login }}](../../../{{ .Assignee.Login }}) {{else}} Not Assigned {{end}}
+
+Labels = {{range .Labels}},, {{.Name}} {{end}} ,, ___
+
+{{ markdown .Body }}___
 
 `))
 
 	commentMarkdown = template.Must(template.New("comment").Funcs(funcMap).Parse(
-		`## [{{ .User.Login }}](../../../{{ .User.Login }}) commented {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }} ({{ .AuthorAssociation }})
+		`## Comment
 
-{{ markdown .Body }}
+User: [{{ .User.Login }}](../../../{{ .User.Login }}) 
+
+CreatedAt: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+
+{{ markdown .Body }}___
 
 `))
 
