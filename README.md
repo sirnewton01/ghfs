@@ -74,9 +74,15 @@ should be possible to use this in conjunction with a tool such as [dgit](https:/
 or a git filesystem to update/merge/patch/push changes to GitHub while keeping track
 of the progress of the project.
 
-## Get Started - Plan 9 Port
+## Get Started
+
+### Plan 9 Port
 Install the latest plan9port. Run ghfs. Mount the filesystem with ```9 mount localhost:5640 <mount-point>```
 assuming the default tcp port 5640.
+
+### Plan 9
+
+Run ghfs. Post the service with `srv tcp!$yourhostname!5640 ghfs`. You can now mount the service somewhere with `mount /srv/ghfs $mountpoint`. 
 
 ## Authentication
 The filesystem uses no authentication with GitHub by default. The rate limit is much lower in this mode.
