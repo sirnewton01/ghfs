@@ -447,8 +447,7 @@ func (srh *StarredReposHandler) Open(name string, fid protocol.FID, mode protoco
 	srh.mu.Lock()
 	defer srh.mu.Unlock()
 
-	// TODO user is hard-coded here
-	stars, _, err := client.Activity.ListStarred(context.Background(), "sirnewton01", nil)
+	stars, _, err := client.Activity.ListStarred(context.Background(), currentUser, nil)
 	if err != nil {
 		return err
 	}
