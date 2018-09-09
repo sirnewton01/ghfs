@@ -136,6 +136,8 @@ the expected format and make it easy to modify.
 
 	server = d
 
+	NewStarredReposHandler()
+
 	if err := s.Serve(ln); err != nil {
 		log.Fatal(err)
 	}

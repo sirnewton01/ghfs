@@ -68,6 +68,13 @@ Updated: {{ .UpdatedAt.Format "2006-01-02T15:04:05Z07:00" }}
 
 Followers: {{ .Followers }}
 `))
+
+	starMarkdown = template.Must(template.New("star").Funcs(funcMap).Parse(
+		`# Starred repositories
+
+{{ range . }}  * repos/{{ .Repository.Owner.Login }}/{{ .Repository.Name }}
+{{ end }}
+`))
 )
 
 type repoMarkdownForm struct {
@@ -425,4 +432,34 @@ func (rrh *RepoReadmeHandler) Open(name string, fid protocol.FID, mode protocol.
 	rrh.StaticFileHandler.Content = []byte(c)
 
 	return rrh.StaticFileHandler.Open(name, fid, mode)
+}
+
+type StarredReposHandler struct {
+	dynamic.StaticFileHandler
+	mu sync.Mutex
+}
+
+func NewStarredReposHandler() {
+	server.AddFileEntry(path.Join("/stars.md"), &StarredReposHandler{StaticFileHandler: dynamic.StaticFileHandler{[]byte{}}})
+}
+
+func (srh *StarredReposHandler) Open(name string, fid protocol.FID, mode protocol.Mode) error {
+	srh.mu.Lock()
+	defer srh.mu.Unlock()
+
+	// TODO user is hard-coded here
+	stars, _, err := client.Activity.ListStarred(context.Background(), "sirnewton01", nil)
+	if err != nil {
+		return err
+	}
+
+	buf := bytes.Buffer{}
+	err = starMarkdown.Execute(&buf, stars)
+	if err != nil {
+		return err
+	}
+
+	srh.StaticFileHandler.Content = buf.Bytes()
+
+	return srh.StaticFileHandler.Open(name, fid, mode)
 }
