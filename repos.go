@@ -215,8 +215,10 @@ func (oh *OwnerHandler) refresh(owner string) error {
 		for _, repo := range repos {
 			log.Printf("Adding repo %v\n", *repo.Name)
 			server.AddFileEntry(path.Join("/repos", owner, *repo.Name), &dynamic.BasicDirHandler{server, nil})
-			server.AddFileEntry(path.Join("/repos", owner, *repo.Name, "repo.md"), &RepoOverviewHandler{StaticFileHandler: dynamic.StaticFileHandler{[]byte{}}})
-			NewIssuesHandler(server, path.Join("/repos", owner, *repo.Name))
+			repoPath := path.Join("/repos", owner, *repo.Name)
+			NewRepoOverviewHandler(repoPath)
+			NewIssuesHandler(repoPath)
+			NewRepoReadmeHandler(repoPath)
 		}
 
 		if resp.NextPage == 0 {
@@ -324,6 +326,10 @@ type RepoOverviewHandler struct {
 	mu sync.Mutex
 }
 
+func NewRepoOverviewHandler(repoPath string) {
+	server.AddFileEntry(path.Join(repoPath, "repo.md"), &RepoOverviewHandler{StaticFileHandler: dynamic.StaticFileHandler{[]byte{}}})
+}
+
 func (roh *RepoOverviewHandler) Open(name string, fid protocol.FID, mode protocol.Mode) error {
 	owner := path.Base(path.Dir(path.Dir(name)))
 	repo := path.Base(path.Dir(name))
@@ -388,4 +394,35 @@ func (roh *RepoOverviewHandler) Write(name string, fid protocol.FID, offset int6
 
 	  return int64(length), err*/
 	return 0, fmt.Errorf("Modifying repos is not supported.")
+}
+
+type RepoReadmeHandler struct {
+	dynamic.StaticFileHandler
+	mu sync.Mutex
+}
+
+func NewRepoReadmeHandler(repoPath string) {
+	server.AddFileEntry(path.Join(repoPath, "README.md"), &RepoReadmeHandler{StaticFileHandler: dynamic.StaticFileHandler{[]byte{}}})
+}
+
+func (rrh *RepoReadmeHandler) Open(name string, fid protocol.FID, mode protocol.Mode) error {
+	owner := path.Base(path.Dir(path.Dir(name)))
+	repo := path.Base(path.Dir(name))
+
+	rrh.mu.Lock()
+	defer rrh.mu.Unlock()
+
+	readme, _, err := client.Repositories.GetReadme(context.Background(), owner, repo, nil)
+	if err != nil {
+		return err
+	}
+
+	c, err := readme.GetContent()
+	if err != nil {
+		return err
+	}
+
+	rrh.StaticFileHandler.Content = []byte(c)
+
+	return rrh.StaticFileHandler.Open(name, fid, mode)
 }

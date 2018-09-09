@@ -88,7 +88,7 @@ type IssuesHandler struct {
 	mutex   sync.Mutex
 }
 
-func NewIssuesHandler(server *dynamic.Server, repoPath string) {
+func NewIssuesHandler(repoPath string) {
 	handler := &IssuesHandler{}
 	handler.options = &github.IssueListByRepoOptions{State: "open"}
 	handler.BasicDirHandler = dynamic.BasicDirHandler{server, func(name string) bool {
