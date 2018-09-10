@@ -46,11 +46,21 @@ CreatedAt: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
 
 `))
 
-	issueFilterMarkdown = template.Must(template.New("issueFilter").Funcs(funcMap).Parse(
-		`# Filters
+	issuesListMarkdown = template.Must(template.New("issueList").Funcs(funcMap).Parse(
+		`# Issues
 
-Use these filters to control the issues that are shown in this directory. This file
-uses restful markdown. See the README.md at the top level of this filesystem
+This is a list of issues for the project. You can change the filter by editing filter.md, save it and Get this list again.
+
+{{ range . }}  * {{ .Number }}.md [{{ .State }}] - {{ .Title }} - {{ range .Labels }}{{ .Name }} {{ end }}- {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }} - {{ .Comments }}
+{{ end }}
+
+`))
+
+	issueFilterMarkdown = template.Must(template.New("issueFilter").Funcs(funcMap).Parse(
+		`# Filter
+
+Use this filter to control the issues that are shown in this directory and the issues list. This file
+uses restful markdown. See the 0intro.md at the top level of this filesystem
 for more details on how to work with the format.
 
 {{ markform . "Milestone" }}
@@ -102,6 +112,7 @@ func NewIssuesHandler(repoPath string) {
 
 	server.AddFileEntry(path.Join(repoPath, "issues"), handler)
 	NewIssuesCtl(server, path.Join(repoPath, "issues"), handler)
+	NewIssuesListHandler(path.Join(repoPath, "issues"), handler)
 }
 
 func (ih *IssuesHandler) WalkChild(name string, child string) (int, error) {
@@ -134,6 +145,7 @@ func (ih *IssuesHandler) refresh(owner string, repo string) error {
 	ih.options.ListOptions = github.ListOptions{PerPage: 1}
 	ih.filter = make(map[string]bool)
 	ih.filter["/repos/"+owner+"/"+repo+"/issues/filter.md"] = true
+	ih.filter["/repos/"+owner+"/"+repo+"/issues/0list.md"] = true
 
 	for {
 		issues, resp, err := client.Issues.ListByRepo(context.Background(), owner, repo, ih.options)
@@ -433,4 +445,56 @@ func (i *Issue) Remove(name string) error {
 
 func (i *Issue) Clunk(name string, fid protocol.FID) error {
 	return nil
+}
+
+type IssuesListHandler struct {
+	dynamic.StaticFileHandler
+	ih *IssuesHandler
+	mu sync.Mutex
+}
+
+func NewIssuesListHandler(repoIssuesPath string, ih *IssuesHandler) {
+	server.AddFileEntry(path.Join(repoIssuesPath, "0list.md"), &IssuesListHandler{StaticFileHandler: dynamic.StaticFileHandler{[]byte{}}, ih: ih})
+}
+
+func (ilh *IssuesListHandler) Open(name string, fid protocol.FID, mode protocol.Mode) error {
+	ilh.mu.Lock()
+	defer ilh.mu.Unlock()
+
+	issues := []*github.Issue{}
+
+	repo := path.Base(path.Dir(path.Dir(name)))
+	owner := path.Base(path.Dir(path.Dir(path.Dir(name))))
+
+	ilh.ih.mutex.Lock()
+	defer ilh.ih.mutex.Unlock()
+
+	ilh.ih.options.ListOptions = github.ListOptions{PerPage: 1}
+
+	for {
+		i, resp, err := client.Issues.ListByRepo(context.Background(), owner, repo, ilh.ih.options)
+		if err != nil {
+			return err
+		}
+
+		for _, issue := range i {
+			issues = append(issues, issue)
+		}
+
+		if resp.NextPage == 0 {
+			break
+		}
+
+		ilh.ih.options.Page = resp.NextPage
+	}
+
+	buf := bytes.Buffer{}
+	err := issuesListMarkdown.Execute(&buf, issues)
+	if err != nil {
+		return err
+	}
+
+	ilh.StaticFileHandler.Content = buf.Bytes()
+
+	return ilh.StaticFileHandler.Open(name, fid, mode)
 }
