@@ -23,6 +23,8 @@ var (
 
 {{ markform .Form "Starred" }}
 
+{{ markform .Form "Notifications" }}
+
 Created: {{ .Repository.CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
 Watchers: {{ .Repository.WatchersCount }}
 Stars: {{ .Repository.StargazersCount }}
@@ -323,8 +325,9 @@ type RepoOverviewHandler struct {
 	Repository *github.Repository
 	Branch     *github.Branch
 	Form       struct {
-		Description string ` = ___`
-		Starred     bool   ` = []`
+		Description   string ` = ___`
+		Starred       bool   ` = []`
+		Notifications string ` = () not watching () watching () ignoring`
 	}
 
 	readbuf  *bytes.Buffer
@@ -365,6 +368,11 @@ func (roh *RepoOverviewHandler) Open(name string, fid protocol.FID, mode protoco
 		return err
 	}
 
+	subs, _, err := client.Activity.GetRepositorySubscription(context.Background(), owner, repo)
+	if err != nil {
+		return err
+	}
+
 	roh.Repository = r
 	roh.Branch = b
 
@@ -372,6 +380,13 @@ func (roh *RepoOverviewHandler) Open(name string, fid protocol.FID, mode protoco
 		roh.Form.Description = *r.Description
 	}
 	roh.Form.Starred = s
+	if subs == nil || (!*subs.Subscribed && !*subs.Ignored) {
+		roh.Form.Notifications = "not watching"
+	} else if *subs.Subscribed {
+		roh.Form.Notifications = "watching"
+	} else if *subs.Ignored {
+		roh.Form.Notifications = "ignoring"
+	}
 
 	if mode == protocol.OREAD {
 		buf := bytes.Buffer{}
@@ -489,6 +504,40 @@ func (roh *RepoOverviewHandler) Clunk(name string, fid protocol.FID) error {
 			}
 		} else {
 			_, err := client.Activity.Unstar(context.Background(), owner, repo)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	subs := &github.Subscription{}
+	f := false
+	t := true
+
+	if newroh.Form.Notifications != roh.Form.Notifications {
+		if newroh.Form.Notifications == "not watching" {
+			subs.Subscribed = &f
+			subs.Ignored = &f
+			_, _, err := client.Activity.SetRepositorySubscription(context.Background(), owner, repo, subs)
+			if err != nil {
+				return err
+			}
+
+			_, err = client.Activity.DeleteRepositorySubscription(context.Background(), owner, repo)
+			if err != nil {
+				return err
+			}
+		} else if newroh.Form.Notifications == "watching" {
+			subs.Subscribed = &t
+			subs.Ignored = &f
+			_, _, err := client.Activity.SetRepositorySubscription(context.Background(), owner, repo, subs)
+			if err != nil {
+				return err
+			}
+		} else if newroh.Form.Notifications == "ignoring" {
+			subs.Subscribed = &f
+			subs.Ignored = &t
+			_, _, err := client.Activity.SetRepositorySubscription(context.Background(), owner, repo, subs)
 			if err != nil {
 				return err
 			}
