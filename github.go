@@ -69,7 +69,7 @@ Welcome to a file system view of GitHub. Using the site is easy once you learn a
 
 Files are rendered in Markdown or even simple text so that you can interact with it using simple text editors.
 
-For each repo, the open issues are shown under "_ghfs_/repos/_owner_/_repo_/issues". In that directory there is a
+For each repo the open issues are shown under "_ghfs_/repos/_owner_/_repo_/issues". In that directory there is a
 filter.md file that you can modify to change the issue filters. When you refresh the directory listing only the
 issues matching the filter are shown.
 
@@ -117,7 +117,8 @@ Lists look something like this.
 
 Labels = ,, ___
 
-You can add your own values like this, preserving the template at the end.
+You can add your own values like this. You don't need (and shouldn't) to remove the template at the end.
+Just type in your new elements or remove existing elements.
 
 Labels = ,, enhancement ,, ___
 

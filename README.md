@@ -14,7 +14,9 @@ You can experiment to find combinations of commands that suit your need.
 * Browse repositories by owner (user or organization)
 * Read issues
 * Filter issues based on milestone, labels, assignee and creator
-* Vew user and organization metadata
+* Vew user, organization and project metadata
+* Edit project metadata
+* Star/unstar projects
 
 ## Examples
 
@@ -88,6 +90,9 @@ Run ghfs. Post the service with `srv tcp!$yourhostname!5640 ghfs`. You can now m
 The filesystem uses no authentication with GitHub by default. The rate limit is much lower in this mode.
 You can generate a Personal Access Token in your Settings > Develper Settings screen. With a token you
 can provide it in the command-line with the ```-apitoken``` flag.
+
+If you plan to make modifications to projects (change descriptions, star/unstar projects) you will need to add
+project permissions to your API token. Otherwise, changes will be silently ignored by the GitHub REST API.
 
 ## Useful tricks
 You can navigate to any user or organization  you want, not just the ones you follow. Open the /repos

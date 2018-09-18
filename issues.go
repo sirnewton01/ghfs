@@ -22,13 +22,9 @@ var (
 		`# Title = {{ .Title  }}___
 
 State = {{ .State }}
-
 OpenedBy: [{{ .User.Login }}](../../../{{ .User.Login }})
-
 CreatedAt: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
-
 Assignee = {{if .Assignee}} [{{ .Assignee.Login }}](../../../{{ .Assignee.Login }}) {{else}} Not Assigned {{end}}
-
 Labels = {{range .Labels}},, {{.Name}} {{end}} ,, ___
 
 {{ markdown .Body }}___
@@ -39,7 +35,6 @@ Labels = {{range .Labels}},, {{.Name}} {{end}} ,, ___
 		`## Comment
 
 User: [{{ .User.Login }}](../../../{{ .User.Login }}) 
-
 CreatedAt: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
 
 {{ markdown .Body }}___
@@ -315,6 +310,10 @@ func (ic *IssuesCtl) Clunk(name string, fid protocol.FID) error {
 		return nil
 	}
 	ic.writefid = 0
+
+	if len(ic.writebuf.Bytes()) == 0 {
+		return nil
+	}
 
 	isf := IssuesFilter{}
 	err := markform.Unmarshal(ic.writebuf.Bytes(), &isf)

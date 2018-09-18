@@ -7,6 +7,7 @@ import (
 	"github.com/Harvey-OS/ninep/protocol"
 	"github.com/google/go-github/github"
 	"github.com/sirnewton01/ghfs/dynamic"
+	"github.com/sirnewton01/ghfs/markform"
 	"log"
 	"path"
 	"strings"
@@ -16,40 +17,33 @@ import (
 
 var (
 	repoMarkdown = template.Must(template.New("repository").Funcs(funcMap).Parse(
-		`# {{ .Rest.FullName }} {{ if .Rest.GetFork }}[{{ .Rest.GetSource.FullName }}](../../{{ .Rest.GetSource.Owner.Login }}/{{ .Rest.GetSource.Name }}/repo.md){{ end }}
+		`# {{ .Repository.FullName }} {{ if .Repository.GetFork }}[{{ .Repsoitory.GetSource.FullName }}](../../{{ .Repository.GetSource.Owner.Login }}/{{ .Repository.GetSource.Name }}/repo.md){{ end }}
 
 {{ markform .Form "Description" }}
 
-Created: {{ .Rest.CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+{{ markform .Form "Starred" }}
 
-Watchers: {{ .Rest.WatchersCount }}
-
-Stars: {{ .Rest.StargazersCount }}
-
-Forks: {{ .Rest.ForksCount }}
-
-Default branch: {{ .Rest.DefaultBranch }}
-
-Pushed: {{ .Rest.PushedAt.Format "2006-01-02T15:04:05Z07:00" }}
-
+Created: {{ .Repository.CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+Watchers: {{ .Repository.WatchersCount }}
+Stars: {{ .Repository.StargazersCount }}
+Forks: {{ .Repository.ForksCount }}
+Default branch: {{ .Repository.DefaultBranch }}
+Pushed: {{ .Repository.PushedAt.Format "2006-01-02T15:04:05Z07:00" }}
 Commit: {{ .Branch.GetCommit.SHA }} {{ .Branch.GetCommit.Commit.Author.Date.Format "2006-01-02T15:04:05Z07:00" }}
 
-git clone {{ .Rest.CloneURL }}
+git clone {{ .Repository.CloneURL }}
 `))
 
 	userMarkdown = template.Must(template.New("user").Funcs(funcMap).Parse(
 		`# {{ .Name }} - {{ .Login }}
 
 Location: {{ .Location }}
-
 Email: {{ .Email }}
 
 {{ .Bio }}
 
 Created: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
-
 Updated: {{ .UpdatedAt.Format "2006-01-02T15:04:05Z07:00" }}
-
 Followers: {{ .Followers }}
 `))
 
@@ -57,15 +51,12 @@ Followers: {{ .Followers }}
 		`# {{ .Name }} - {{ .Login }}
 
 Location: {{ .Location }}
-
 Email: {{ .Email }}
 
 {{ .Description }}
 
 Created: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
-
 Updated: {{ .UpdatedAt.Format "2006-01-02T15:04:05Z07:00" }}
-
 Followers: {{ .Followers }}
 `))
 
@@ -329,12 +320,25 @@ func (oh *OrgHandler) Open(name string, fid protocol.FID, mode protocol.Mode) er
 // RepoOverviewHandler handles the displaying and updating of the
 //  repo.md for a repo.
 type RepoOverviewHandler struct {
-	dynamic.StaticFileHandler
-	mu sync.Mutex
+	Repository *github.Repository
+	Branch     *github.Branch
+	Form       struct {
+		Description string ` = ___`
+		Starred     bool   ` = []`
+	}
+
+	readbuf  *bytes.Buffer
+	writefid protocol.FID
+	writebuf *bytes.Buffer
+	mu       sync.Mutex
 }
 
 func NewRepoOverviewHandler(repoPath string) {
-	server.AddFileEntry(path.Join(repoPath, "repo.md"), &RepoOverviewHandler{StaticFileHandler: dynamic.StaticFileHandler{[]byte{}}})
+	server.AddFileEntry(path.Join(repoPath, "repo.md"), &RepoOverviewHandler{readbuf: &bytes.Buffer{}})
+}
+
+func (roh *RepoOverviewHandler) WalkChild(name string, child string) (int, error) {
+	return -1, fmt.Errorf("No children of the repo.md file")
 }
 
 func (roh *RepoOverviewHandler) Open(name string, fid protocol.FID, mode protocol.Mode) error {
@@ -356,51 +360,142 @@ func (roh *RepoOverviewHandler) Open(name string, fid protocol.FID, mode protoco
 		return err
 	}
 
-	model := repoMarkdownModel{Rest: r, Branch: b}
-	if r.Description != nil {
-		model.Form.Description = *r.Description
-	}
-
-	buf := bytes.Buffer{}
-	err = repoMarkdown.Execute(&buf, model)
+	s, _, err := client.Activity.IsStarred(context.Background(), owner, repo)
 	if err != nil {
 		return err
 	}
 
-	roh.StaticFileHandler.Content = buf.Bytes()
+	roh.Repository = r
+	roh.Branch = b
 
-	return roh.StaticFileHandler.Open(name, fid, mode)
+	if r.Description != nil {
+		roh.Form.Description = *r.Description
+	}
+	roh.Form.Starred = s
+
+	if mode == protocol.OREAD {
+		buf := bytes.Buffer{}
+		err = repoMarkdown.Execute(&buf, roh)
+		if err != nil {
+			return err
+		}
+		roh.readbuf = &buf
+	}
+
+	if mode&protocol.ORDWR != 0 || mode&protocol.OWRITE != 0 {
+		if roh.writefid != 0 {
+			return fmt.Errorf("Repo metadata doesn't support concurrent writes")
+		}
+
+		roh.writefid = fid
+		roh.writebuf = &bytes.Buffer{}
+	}
+
+	return nil
 }
 
 func (roh *RepoOverviewHandler) Write(name string, fid protocol.FID, offset int64, buf []byte) (int64, error) {
-	/*ic.mutex.Lock()
-	  defer ic.mutex.Unlock()
+	roh.mu.Lock()
+	defer roh.mu.Unlock()
 
-	  // TODO consider offset
-	  length, err := ic.writebuf.Write(buf)
-	  if err != nil {
-	          return int64(length), err
-	  }
+	if fid != roh.writefid {
+		return int64(len(buf)), nil
+	}
 
-	  // TODO handle multiple writes for the entire file
-	  isf := IssuesFilter{}
-	  err = markform.Unmarshal(ic.writebuf.Bytes(), &isf)
-	  if err != nil {
-	          return int64(length), err
-	  }
+	// TODO consider offset
+	length, err := roh.writebuf.Write(buf)
+	if err != nil {
+		return int64(length), err
+	}
 
-	  ic.ih.options.Milestone = isf.Milestone
-	  ic.ih.options.State = isf.State
-	  ic.ih.options.Assignee = isf.Assignee
-	  ic.ih.options.Creator = isf.Creator
-	  ic.ih.options.Mentioned = isf.Mentioned
-	  ic.ih.options.Labels = isf.Labels
-	  ic.ih.options.Since = isf.Since
+	return int64(length), nil
+}
 
-	  err = ic.ih.refresh(path.Base(path.Dir(path.Dir(path.Dir(name)))), path.Base(path.Dir(path.Dir(name))))
+func (roh *RepoOverviewHandler) Read(name string, fid protocol.FID, offset int64, count int64) ([]byte, error) {
+	roh.mu.Lock()
+	defer roh.mu.Unlock()
 
-	  return int64(length), err*/
-	return 0, fmt.Errorf("Modifying repos is not supported.")
+	if offset >= int64(roh.readbuf.Len()) {
+		return []byte{}, nil // TODO should an error be returned?
+	}
+
+	if offset+count >= int64(roh.readbuf.Len()) {
+		return roh.readbuf.Bytes()[offset:], nil
+	}
+
+	return roh.readbuf.Bytes()[offset : offset+count], nil
+}
+
+func (roh *RepoOverviewHandler) CreateChild(name string, child string) (int, error) {
+	return -1, fmt.Errorf("Creating a child of a repo.md is not supported")
+}
+
+func (roh *RepoOverviewHandler) Stat(name string) (protocol.Dir, error) {
+	roh.mu.Lock()
+	defer roh.mu.Unlock()
+
+	// There's only one version and it is always a file
+	return protocol.Dir{QID: protocol.QID{Version: 0, Type: protocol.QTFILE}, Length: uint64(roh.readbuf.Len())}, nil
+}
+
+func (roh *RepoOverviewHandler) Wstat(name string, dir protocol.Dir) error {
+	roh.mu.Lock()
+	defer roh.mu.Unlock()
+
+	roh.writebuf.Truncate(int(dir.Length))
+	return nil
+}
+
+func (roh *RepoOverviewHandler) Remove(name string) error {
+	return fmt.Errorf("Removing repo.md isn't supported.")
+}
+
+func (roh *RepoOverviewHandler) Clunk(name string, fid protocol.FID) error {
+	owner := path.Base(path.Dir(path.Dir(name)))
+	repo := path.Base(path.Dir(name))
+
+	roh.mu.Lock()
+	defer roh.mu.Unlock()
+
+	if fid != roh.writefid {
+		return nil
+	}
+	roh.writefid = 0
+
+	// No bytes were written this time, leave it alone
+	if len(roh.writebuf.Bytes()) == 0 {
+		return nil
+	}
+
+	newroh := &RepoOverviewHandler{}
+	err := markform.Unmarshal(roh.writebuf.Bytes(), &newroh.Form)
+	if err != nil {
+		return err
+	}
+
+	if newroh.Form.Description != roh.Form.Description {
+		roh.Repository.Description = &newroh.Form.Description
+		_, _, err := client.Repositories.Edit(context.Background(), owner, repo, roh.Repository)
+		if err != nil {
+			return err
+		}
+	}
+
+	if newroh.Form.Starred != roh.Form.Starred {
+		if newroh.Form.Starred {
+			_, err := client.Activity.Star(context.Background(), owner, repo)
+			if err != nil {
+				return err
+			}
+		} else {
+			_, err := client.Activity.Unstar(context.Background(), owner, repo)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 type RepoReadmeHandler struct {
