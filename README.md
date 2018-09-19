@@ -17,6 +17,7 @@ You can experiment to find combinations of commands that suit your need.
 * Vew user, organization and project metadata
 * Edit project metadata
 * Star/unstar projects
+* Follow/unfollow users
 
 ## Examples
 
@@ -93,6 +94,7 @@ can provide it in the command-line with the ```-apitoken``` flag.
 
 If you plan to make modifications to projects (change descriptions, star/unstar projects) you will need to add
 project permissions to your API token. Otherwise, changes will be silently ignored by the GitHub REST API.
+Also, be sure to set the follow/unfollow users permission if you want to be able to do that within ghfs.
 
 ## Useful tricks
 You can navigate to any user or organization  you want, not just the ones you follow. Open the /repos
