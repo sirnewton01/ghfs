@@ -46,7 +46,7 @@ CreatedAt: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
 
 This is a list of issues for the project. You can change the filter by editing filter.md, save it and Get this list again.
 
-{{ range . }}  * {{ .Number }}.md [{{ .State }}] - {{ .Title }} - {{ range .Labels }}{{ .Name }} {{ end }}- {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }} - {{ .Comments }}
+{{ range . }}  * {{ .Number }}.md [{{ .State }}] - {{ .Title }} - [ {{ range .Labels }}{{ .Name }} {{ end }}] - {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }} - {{ .Comments }}
 {{ end }}
 
 `))

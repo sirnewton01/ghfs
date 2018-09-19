@@ -37,16 +37,18 @@ git clone {{ .Repository.CloneURL }}
 `))
 
 	userMarkdown = template.Must(template.New("user").Funcs(funcMap).Parse(
-		`# {{ .Name }} - {{ .Login }}
+		`# {{ .User.Name }} - {{ .User.Login }}
 
-Location: {{ .Location }}
-Email: {{ .Email }}
+Location: {{ .User.Location }}
+Email: {{ .User.Email }}
 
-{{ .Bio }}
+{{ .User.Bio }}
 
-Created: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
-Updated: {{ .UpdatedAt.Format "2006-01-02T15:04:05Z07:00" }}
-Followers: {{ .Followers }}
+Created: {{ .User.CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+Updated: {{ .User.UpdatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+Followers: {{ .User.Followers }}
+
+{{ markform .Form "Follow" }}
 `))
 
 	orgMarkdown = template.Must(template.New("org").Funcs(funcMap).Parse(
@@ -165,7 +167,6 @@ func NewOwnerHandler(owner string) (int, error) {
 		return idx, nil
 	}
 	NewOrgHandler(*org.Login)
-	//server.AddFileEntry(path.Join("/repos", owner, "org.md"), NewOrgHandler(org))
 	return idx, nil
 }
 
@@ -245,47 +246,167 @@ func (oh *OwnerHandler) Write(name string, fid protocol.FID, offset int64, buf [
 	return 0, fmt.Errorf("Creating repos is not supported.")
 }
 
-func NewUserHandler(name string) {
-	server.AddFileEntry(path.Join("/repos", name, "0user.md"), &UserHandler{StaticFileHandler: dynamic.StaticFileHandler{[]byte{}}})
-}
-
 // UserHandler handles the displaying and updating of the
 //  0user.md for a user.
 type UserHandler struct {
-	dynamic.StaticFileHandler
-	mu sync.Mutex
+	User *github.User
+	Form struct {
+		Follow bool ` = []`
+	}
+
+	readbuf  *bytes.Buffer
+	writefid protocol.FID
+	writebuf *bytes.Buffer
+	mu       sync.Mutex
+}
+
+func NewUserHandler(name string) {
+	server.AddFileEntry(path.Join("/repos", name, "0user.md"), &UserHandler{readbuf: &bytes.Buffer{}})
 }
 
 func (uh *UserHandler) WalkChild(name string, child string) (int, error) {
-	return uh.StaticFileHandler.WalkChild(name, child)
+	return -1, fmt.Errorf("No children of the 0user.md file")
 }
 
 func (uh *UserHandler) Open(name string, fid protocol.FID, mode protocol.Mode) error {
-	user := path.Base(path.Dir(name))
+	username := path.Base(path.Dir(name))
 
-	log.Printf("Reading user %s\n", user)
+	log.Printf("Reading user %s\n", username)
+
+	u, _, err := client.Users.Get(context.Background(), username)
+	if err != nil {
+		return err
+	}
+
+	following, _, err := client.Users.IsFollowing(context.Background(), "", username)
+	if err != nil {
+		return err
+	}
 
 	uh.mu.Lock()
 	defer uh.mu.Unlock()
 
-	u, _, err := client.Users.Get(context.Background(), user)
+	uh.User = u
+	uh.Form.Follow = following
+
+	if mode == protocol.OREAD {
+		buf := bytes.Buffer{}
+		err = userMarkdown.Execute(&buf, uh)
+		if err != nil {
+			return err
+		}
+		uh.readbuf = &buf
+	}
+
+	if mode&protocol.ORDWR != 0 || mode&protocol.OWRITE != 0 {
+		if uh.writefid != 0 {
+			return fmt.Errorf("User metadata doesn't support concurrent writes")
+		}
+
+		uh.writefid = fid
+		uh.writebuf = &bytes.Buffer{}
+	}
+
+	return nil
+}
+
+func (uh *UserHandler) Write(name string, fid protocol.FID, offset int64, buf []byte) (int64, error) {
+	uh.mu.Lock()
+	defer uh.mu.Unlock()
+
+	if fid != uh.writefid {
+		return int64(len(buf)), nil
+	}
+
+	// TODO consider offset
+	length, err := uh.writebuf.Write(buf)
+	if err != nil {
+		return int64(length), err
+	}
+
+	return int64(length), nil
+}
+
+func (uh *UserHandler) Read(name string, fid protocol.FID, offset int64, count int64) ([]byte, error) {
+	uh.mu.Lock()
+	defer uh.mu.Unlock()
+
+	if offset >= int64(uh.readbuf.Len()) {
+		return []byte{}, nil // TODO should an error be returned?
+	}
+
+	if offset+count >= int64(uh.readbuf.Len()) {
+		return uh.readbuf.Bytes()[offset:], nil
+	}
+
+	return uh.readbuf.Bytes()[offset : offset+count], nil
+}
+
+func (uh *UserHandler) CreateChild(name string, child string) (int, error) {
+	return -1, fmt.Errorf("Creating a child of a 0user.md is not supported")
+}
+
+func (uh *UserHandler) Stat(name string) (protocol.Dir, error) {
+	uh.mu.Lock()
+	defer uh.mu.Unlock()
+
+	// There's only one version and it is always a file
+	return protocol.Dir{QID: protocol.QID{Version: 0, Type: protocol.QTFILE}, Length: uint64(uh.readbuf.Len())}, nil
+}
+
+func (uh *UserHandler) Wstat(name string, dir protocol.Dir) error {
+	uh.mu.Lock()
+	defer uh.mu.Unlock()
+
+	uh.writebuf.Truncate(int(dir.Length))
+	return nil
+}
+
+func (uh *UserHandler) Remove(name string) error {
+	return fmt.Errorf("Removing 0user.md isn't supported.")
+}
+
+func (uh *UserHandler) Clunk(name string, fid protocol.FID) error {
+	username := path.Base(path.Dir(name))
+
+	uh.mu.Lock()
+	defer uh.mu.Unlock()
+
+	if fid != uh.writefid {
+		return nil
+	}
+	uh.writefid = 0
+
+	// No bytes were written this time, leave it alone
+	if len(uh.writebuf.Bytes()) == 0 {
+		return nil
+	}
+
+	newuh := &UserHandler{}
+	err := markform.Unmarshal(uh.writebuf.Bytes(), &newuh.Form)
 	if err != nil {
 		return err
 	}
 
-	buf := bytes.Buffer{}
-	err = userMarkdown.Execute(&buf, u)
-	if err != nil {
-		return err
+	if newuh.Form.Follow != uh.Form.Follow {
+		if newuh.Form.Follow {
+			_, err := client.Users.Follow(context.Background(), username)
+			if err != nil {
+				return err
+			}
+		} else {
+			_, err := client.Users.Unfollow(context.Background(), username)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
-	uh.StaticFileHandler.Content = buf.Bytes()
-
-	return uh.StaticFileHandler.Open(name, fid, mode)
+	return nil
 }
 
 func NewOrgHandler(name string) {
-	server.AddFileEntry(path.Join("/repos", name, "0org.md"), &UserHandler{StaticFileHandler: dynamic.StaticFileHandler{[]byte{}}})
+	server.AddFileEntry(path.Join("/repos", name, "0org.md"), &OrgHandler{StaticFileHandler: dynamic.StaticFileHandler{[]byte{}}})
 }
 
 // UserHandler handles the displaying and updating of the
