@@ -17,7 +17,7 @@ import (
 
 var (
 	repoMarkdown = template.Must(template.New("repository").Funcs(funcMap).Parse(
-		`# {{ .Repository.FullName }} {{ if .Repository.GetFork }}[{{ .Repsoitory.GetSource.FullName }}](../../{{ .Repository.GetSource.Owner.Login }}/{{ .Repository.GetSource.Name }}/repo.md){{ end }}
+		`# {{ .Repository.FullName }} {{ if .Repository.GetFork }}[{{ .Repository.GetSource.FullName }}](../../{{ .Repository.GetSource.Owner.Login }}/{{ .Repository.GetSource.Name }}/repo.md){{ end }}
 
 {{ markform .Form "Description" }}
 
