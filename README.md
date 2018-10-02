@@ -40,31 +40,54 @@ $ cat /github/repos/sirnewton01/ghfs/repo.md
 
 Description = 9p GitHub filesystem written in Go for use with Plan 9/p9p___
 
-Watchers: 3
-Stars: 3
-Forks: 0
+Starred = [x]
 
+Notifications = () not watching (x) watching () ignoring
+
+Created: 2018-08-05T22:21:28Z
+Watchers: 10
+Stars: 10
+Forks: 1
 Default branch: master
+Pushed: 2018-10-01T20:46:19Z
+Commit: 079a0fa100e6b1704bed9373f1032fd3dbad4566 2018-10-01T20:46:13Z
 
-git clone  https://github.com/sirnewton01/ghfs.git
+git clone https://github.com/sirnewton01/ghfs.git
 
 $ cat mnt/repos/sirnewton01/ghfs/issues/13.md
 
-# Show last modified time and creation time on issues (#13)
+# Title = Show last modified time and creation time on issues___
 
-State: open - [sirnewton01](../../../sirnewton01) opened this issue 2018-08-10 15:32:24 +0000 UTC - 1 comments
-
-Assignee:  Not Assigned 
-
-Labels: enhancement 
+State = closed
+OpenedBy: [sirnewton01](../../../sirnewton01)
+CreatedAt: 2018-08-10T15:32:24Z
+Assignee =  Not Assigned 
+Labels = ,, enhancement  ,, ___
 
     This becomes really useful when you are looking at issues and want to view/sort them according to how old they are or if there is recent activity.
     
-    You can do a simple ```ls -l``` to browse them yourself or even sort them using ```ls -lt``` or ```ls -Ult```
+    You can do a simple ```ls -l``` to browse them yourself or even sort them using ```ls -lt``` or ```ls -Ult```___
 
-## [sirnewton01](../../../sirnewton01) commented 2018-08-10 16:47:23 +0000 UTC (OWNER)
+## Comment
 
-    Also, it would be useful to have the issues owned by a particular user, except that would only be visible on Plan 9, since the FUSE filesystems generally set the owners of everything to a specific user.
+User: [sirnewton01](../../../sirnewton01) 
+CreatedAt: 2018-08-10T16:47:23Z
+
+    Also, it would be useful to have the issues owned by a particular user, except that would only be visible on Plan 9, since the FUSE filesystems generally set the owners of everything to a specific user.___
+
+## Comment
+
+User: [sirnewton01](../../../sirnewton01) 
+CreatedAt: 2018-09-04T02:37:59Z
+
+    The last modification time has been added.___
+
+## Comment
+
+User: [sirnewton01](../../../sirnewton01) 
+CreatedAt: 2018-09-04T02:43:16Z
+
+    There's no way to expose the creation time in a filesystem.___
 ```
 
 Here is how ghfs can look if you are using the Acme editor.
