@@ -19,49 +19,45 @@ var (
 	repoMarkdown = template.Must(template.New("repository").Funcs(funcMap).Parse(
 		`# {{ .Repository.FullName }} {{ if .Repository.GetFork }}[{{ .Repository.GetSource.FullName }}](../../{{ .Repository.GetSource.Owner.Login }}/{{ .Repository.GetSource.Name }}/repo.md){{ end }}
 
-{{ markform .Form "Description" }}
+* {{ markform .Form "Description" }}
+* {{ markform .Form "Starred" }}
+* {{ markform .Form "Notifications" }}
+* Created: {{ .Repository.CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+* Watchers: {{ .Repository.WatchersCount }}
+* Stars: {{ .Repository.StargazersCount }}
+* Forks: {{ .Repository.ForksCount }}
+* Default branch: {{ .Repository.DefaultBranch }}
+* Pushed: {{ .Repository.PushedAt.Format "2006-01-02T15:04:05Z07:00" }}
+* Commit: {{ .Branch.GetCommit.SHA }} {{ .Branch.GetCommit.Commit.Author.Date.Format "2006-01-02T15:04:05Z07:00" }}
 
-{{ markform .Form "Starred" }}
-
-{{ markform .Form "Notifications" }}
-
-Created: {{ .Repository.CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
-Watchers: {{ .Repository.WatchersCount }}
-Stars: {{ .Repository.StargazersCount }}
-Forks: {{ .Repository.ForksCount }}
-Default branch: {{ .Repository.DefaultBranch }}
-Pushed: {{ .Repository.PushedAt.Format "2006-01-02T15:04:05Z07:00" }}
-Commit: {{ .Branch.GetCommit.SHA }} {{ .Branch.GetCommit.Commit.Author.Date.Format "2006-01-02T15:04:05Z07:00" }}
-
-git clone {{ .Repository.CloneURL }}
+    git clone {{ .Repository.CloneURL }}
 `))
 
 	userMarkdown = template.Must(template.New("user").Funcs(funcMap).Parse(
 		`# {{ .User.Name }} - {{ .User.Login }}
 
-Location: {{ .User.Location }}
-Email: {{ .User.Email }}
+* Location: {{ .User.Location }}
+* Email: {{ .User.Email }}
 
 {{ .User.Bio }}
 
-Created: {{ .User.CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
-Updated: {{ .User.UpdatedAt.Format "2006-01-02T15:04:05Z07:00" }}
-Followers: {{ .User.Followers }}
-
-{{ markform .Form "Follow" }}
+* Created: {{ .User.CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+* Updated: {{ .User.UpdatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+* Followers: {{ .User.Followers }}
+* {{ markform .Form "Follow" }}
 `))
 
 	orgMarkdown = template.Must(template.New("org").Funcs(funcMap).Parse(
 		`# {{ .Name }} - {{ .Login }}
 
-Location: {{ .Location }}
-Email: {{ .Email }}
+* Location: {{ .Location }}
+* Email: {{ .Email }}
 
 {{ .Description }}
 
-Created: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
-Updated: {{ .UpdatedAt.Format "2006-01-02T15:04:05Z07:00" }}
-Followers: {{ .Followers }}
+* Created: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+* Updated: {{ .UpdatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+* Followers: {{ .Followers }}
 `))
 
 	starMarkdown = template.Must(template.New("star").Funcs(funcMap).Parse(
@@ -200,7 +196,7 @@ func (oh *OwnerHandler) WalkChild(name string, child string) (int, error) {
 func (oh *OwnerHandler) refresh(owner string) error {
 	log.Printf("Listing all of the repos for owner %v\n", owner)
 	options := github.RepositoryListOptions{
-		ListOptions: github.ListOptions{PerPage: 10},
+		ListOptions: github.ListOptions{PerPage: 100},
 	}
 
 	for {

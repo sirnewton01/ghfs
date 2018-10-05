@@ -21,23 +21,27 @@ var (
 	issueMarkdown = template.Must(template.New("issue").Funcs(funcMap).Parse(
 		`# Title = {{ .Title  }}___
 
-State = {{ .State }}
-OpenedBy: [{{ .User.Login }}](../../../{{ .User.Login }})
-CreatedAt: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
-Assignee = {{if .Assignee}} [{{ .Assignee.Login }}](../../../{{ .Assignee.Login }}) {{else}} Not Assigned {{end}}
-Labels = {{range .Labels}},, {{.Name}} {{end}} ,, ___
+* State = {{ .State }}___
+* OpenedBy: [{{ .User.Login }}](../../../{{ .User.Login }})
+* CreatedAt: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+* Assignee = {{if .Assignee}} [{{ .Assignee.Login }}](../../../{{ .Assignee.Login }}) {{else}}Not Assigned{{end}}
+* Labels = {{range .Labels}},, {{.Name}} {{end}} ,, ___
 
-{{ markdown .Body }}___
+Body =
+
+{{ .Body }}___
 
 `))
 
 	commentMarkdown = template.Must(template.New("comment").Funcs(funcMap).Parse(
 		`## Comment
 
-User: [{{ .User.Login }}](../../../{{ .User.Login }}) 
-CreatedAt: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
+* User: [{{ .User.Login }}](../../../{{ .User.Login }}) 
+* CreatedAt: {{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
 
-{{ markdown .Body }}___
+Body =
+
+{{ .Body }}___
 
 `))
 
@@ -58,21 +62,17 @@ Use this filter to control the issues that are shown in this directory and the i
 uses restful markdown. See the 0intro.md at the top level of this filesystem
 for more details on how to work with the format.
 
-{{ markform . "Milestone" }}
-
-{{ markform . "State" }}
-
-{{ markform . "Assignee" }}
-
-{{ markform . "Creator" }}
-
-{{ markform . "Mentioned" }}
+* {{ markform . "Milestone" }}
+* {{ markform . "State" }}
+* {{ markform . "Assignee" }}
+* {{ markform . "Creator" }}
+* {{ markform . "Mentioned" }}
 
 Commonly used labels include bug, enhancement and task.
 
-{{ markform . "Labels" }}
+* {{ markform . "Labels" }}
+* {{ markform . "Since" }}
 
-{{ markform . "Since" }}
 `))
 )
 
