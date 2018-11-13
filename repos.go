@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"text/template"
+
+	"gopkg.in/russross/blackfriday.v2"
 )
 
 var (
@@ -379,7 +381,9 @@ func (uh *UserHandler) Clunk(name string, fid protocol.FID) error {
 	}
 
 	newuh := &UserHandler{}
-	err := markform.Unmarshal(uh.writebuf.Bytes(), &newuh.Form)
+	md := blackfriday.New()
+	tree := md.Parse(uh.writebuf.Bytes())
+	err := markform.Unmarshal(tree, &newuh.Form)
 	if err != nil {
 		return err
 	}
@@ -600,7 +604,9 @@ func (roh *RepoOverviewHandler) Clunk(name string, fid protocol.FID) error {
 	}
 
 	newroh := &RepoOverviewHandler{}
-	err := markform.Unmarshal(roh.writebuf.Bytes(), &newroh.Form)
+	md := blackfriday.New()
+	tree := md.Parse(roh.writebuf.Bytes())
+	err := markform.Unmarshal(tree, &newroh.Form)
 	if err != nil {
 		return err
 	}

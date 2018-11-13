@@ -28,24 +28,20 @@ functions provided in this package like this. The template gives you freedom to 
 in a readable way and even add inline text that helps to guide the user.
 
         personTemplate := template.Must(template.New("person").Funcs(funcMap).Parse(
-`# {{ markform . "Name" }} - Personal Information
+        `# {{ markform . "Name" }} - Personal Information
 
-Please ensure that the information is entered correctly. If you have any questions you can
-email the [support team](mailto:support@example.com).
+        Please ensure that the information is entered correctly. If you have any questions you can
+        email the [support team](mailto:support@example.com).
 
-{{ markform . "Description" }}
+        * {{ markform . "Description" }}
+        * {{ markform . "Gender" }}
+        * {{ markform . "Student" }}
+        * {{ markform . "Affiliations" }}
+        * {{ markform . "Education" }}
 
-{{ markform . "Gender" }}
+        Save this file to record any changes to the person record.
 
-{{ markform . "Student" }}
-
-{{ markform . "Affiliations" }}
-
-{{ markform . "Education" }}
-
-Save this file to record any changes to the person record.
-
-`))
+        `))
 
 */
 package markform

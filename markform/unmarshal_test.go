@@ -3,6 +3,8 @@ package markform
 import (
 	"testing"
 	"time"
+
+	"gopkg.in/russross/blackfriday.v2"
 )
 
 func TestUnmarshalDocument(t *testing.T) {
@@ -22,24 +24,23 @@ func TestUnmarshalDocument(t *testing.T) {
 Please ensure that the information is entered correctly. If you have any
 questions you can email the [support team](mailto:support@example.com).
 
-Description = Conscientious student___
+Description = Conscientious
+student___
 
-Gender* = (x) male () female
-
-Student* = [x]
-
-Affiliations = ,, Chess Club ,, ___
-
-Education = [x] elementary [x] secondary [] post-secondary
-
-DateOfBirth = 2010-01-02T15:04:05Z
+* Gender* = (x) male () female
+* Student* = [x]
+* Affiliations = ,, Chess Club ,, ___
+* Education = [x] elementary [x] secondary [] post-secondary
+* DateOfBirth = 2010-01-02T15:04:05Z
 
 Save this file to record any changes to the person record.
 
 `
 
 	person := Person{}
-	err := Unmarshal([]byte(document), &person)
+	md := blackfriday.New(blackfriday.WithExtensions(blackfriday.FencedCode))
+	tree := md.Parse([]byte(document))
+	err := Unmarshal(tree, &person)
 	if err != nil {
 		t.Error(err)
 	}
@@ -48,7 +49,7 @@ Save this file to record any changes to the person record.
 		t.Errorf("Student flag not set")
 	}
 
-	if person.Description != "Conscientious student" {
+	if person.Description != "Conscientious\nstudent" {
 		t.Errorf("Unexpected description: %s\n", person.Description)
 	}
 
@@ -79,5 +80,42 @@ Save this file to record any changes to the person record.
 
 	if person.DateOfBirth.Format(time.RFC3339) != "2010-01-02T15:04:05Z" {
 		t.Errorf("Unexpected date of birth: %v\n", person.DateOfBirth)
+	}
+
+	document =
+		`# Name* = John Doe___[50]  - Personal Information
+
+Please ensure that the information is entered correctly. If you have any
+questions you can email the [support team](mailto:support@example.com).
+
+Description = 
+` + "```" + `
+Conscientious
+student
+
+* more info
+` + "```" + `
+___
+
+* Gender* = (x) male () female
+* Student* = [x]
+* Affiliations = ,, Chess Club ,, ___
+* Education = [x] elementary [x] secondary [] post-secondary
+* DateOfBirth = 2010-01-02T15:04:05Z
+
+Save this file to record any changes to the person record.
+
+`
+
+	person = Person{}
+	md = blackfriday.New(blackfriday.WithExtensions(blackfriday.FencedCode))
+	tree = md.Parse([]byte(document))
+	err = Unmarshal(tree, &person)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if person.Description != "Conscientious\nstudent\n\n* more info" {
+		t.Errorf("Unexpected description: %s\n", person.Description)
 	}
 }

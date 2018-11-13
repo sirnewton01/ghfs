@@ -16,14 +16,15 @@ import (
 )
 
 var (
-	client      *github.Client
-	funcMap     = map[string]interface{}{"markdown": markdown, "markform": markform.Marshal}
-	currentUser string
-	ntype       = flag.String("ntype", "tcp4", "Default network type")
-	naddr       = flag.String("addr", ":5640", "Network address")
-	apitoken    = flag.String("apitoken", "", "Personal API Token for authentication")
-	lognet      = flag.Bool("lognet", false, "Log network requests")
-	server      *dynamic.Server
+	client         *github.Client
+	uncachedClient *github.Client
+	funcMap        = map[string]interface{}{"markdown": markdown, "markform": markform.Marshal}
+	currentUser    string
+	ntype          = flag.String("ntype", "tcp4", "Default network type")
+	naddr          = flag.String("addr", ":5640", "Network address")
+	apitoken       = flag.String("apitoken", "", "Personal API Token for authentication")
+	lognet         = flag.Bool("lognet", false, "Log network requests")
+	server         *dynamic.Server
 )
 
 func markdown(content string) string {
@@ -41,6 +42,10 @@ func main() {
 		cacheTs.Transport = &authTs
 
 		client = github.NewClient(&http.Client{Transport: cacheTs})
+
+		tc := oauth2.NewClient(context.Background(), authTs.Source)
+		uncachedClient = github.NewClient(tc)
+
 		cu, _, err := client.Users.Get(context.Background(), "")
 		if err != nil {
 			panic(err)
@@ -49,6 +54,7 @@ func main() {
 	} else {
 		log.Printf("Using no authentication. Note that rate limits will apply. Caching is enabled.\n")
 		client = github.NewClient(httpcache.NewMemoryCacheTransport().Client())
+		uncachedClient = github.NewClient(nil)
 	}
 
 	if !*lognet {

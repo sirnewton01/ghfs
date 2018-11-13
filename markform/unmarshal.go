@@ -11,12 +11,10 @@ import (
 )
 
 var (
-	formVarPattern = regexp.MustCompile(`(\w+)(\*??) = (.+)`)
+	formVarPattern = regexp.MustCompile(`(?s)(\w+)(\*??) =(.*)`)
 )
 
-func Unmarshal(mdInput []byte, v interface{}) error {
-	md := blackfriday.New()
-	tree := md.Parse(mdInput)
+func Unmarshal(tree *blackfriday.Node, v interface{}) error {
 	t := reflect.Indirect(reflect.ValueOf(v)).Type()
 	tree.Walk(func(node *blackfriday.Node, entering bool) blackfriday.WalkStatus {
 		if node.Type == blackfriday.Text {
@@ -24,6 +22,7 @@ func Unmarshal(mdInput []byte, v interface{}) error {
 			if groups != nil {
 				fn := groups[1]
 				value := groups[3]
+				value = strings.TrimSpace(value)
 				f, ok := t.FieldByName(fn)
 				if ok {
 					// TODO handle required fields
@@ -38,6 +37,14 @@ func Unmarshal(mdInput []byte, v interface{}) error {
 						endOfText := strings.Index(value, "___")
 						if endOfText != -1 {
 							value = value[:endOfText]
+						} else {
+							node = node.Parent.Next
+
+							for node != nil && node.Type != blackfriday.HorizontalRule {
+								nextValue := string(node.Literal)
+								value = value + nextValue
+								node = node.Next
+							}
 						}
 						g := textPattern.FindStringSubmatch(string(f.Tag))
 						if g[2] != "" {
@@ -46,7 +53,7 @@ func Unmarshal(mdInput []byte, v interface{}) error {
 								value = value[:size]
 							}
 						}
-						// TODO handle multi-line
+						value = strings.TrimSpace(value)
 						fv.SetString(value)
 					} else if radioPattern.MatchString(string(f.Tag)) {
 						g := radioPattern.FindStringSubmatch(string(f.Tag))
