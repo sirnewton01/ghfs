@@ -385,6 +385,7 @@ func NewIssue(server *dynamic.Server, owner string, repo string, i *github.Issue
 
 	issue.mtime = i.GetUpdatedAt()
 
+	log.Printf("Listing comments for issue %d\n", *i.Number)
 	comments, _, _ := uncachedClient.Issues.ListComments(context.Background(), owner, repo, *i.Number, nil)
 	for _, comment := range comments {
 		if issue.mtime.Before(comment.GetUpdatedAt()) {
@@ -445,6 +446,7 @@ func (i *Issue) Open(name string, fid protocol.FID, mode protocol.Mode) error {
 
 	if mode == protocol.OREAD {
 		i.readbuf.Truncate(0)
+		log.Printf("Loading issue %d\n", n)
 		issue, _, err := uncachedClient.Issues.Get(context.Background(), owner, repo, n)
 		if err != nil {
 			return err
@@ -476,6 +478,7 @@ func (i *Issue) Open(name string, fid protocol.FID, mode protocol.Mode) error {
 		}
 
 		i.Comments = []Comment{}
+		log.Printf("Listing comments for issue %d\n", n)
 		comments, _, err := uncachedClient.Issues.ListComments(context.Background(), owner, repo, n, nil)
 		for idx, comment := range comments {
 			if i.mtime.Before(comment.GetUpdatedAt()) {
@@ -606,6 +609,7 @@ func (i *Issue) Clunk(name string, fid protocol.FID) error {
 	// TODO collapse these individual edits into one
 
 	if newi.Form.Body != i.Form.Body {
+		log.Printf("Setting issue body for %s\n", n)
 		_, _, err := client.Issues.Edit(context.Background(), owner, repo, n, &github.IssueRequest{Body: &newi.Form.Body})
 		if err != nil {
 			return err
@@ -613,6 +617,7 @@ func (i *Issue) Clunk(name string, fid protocol.FID) error {
 	}
 
 	if newi.Form.Title != i.Form.Title {
+		log.Printf("Setting issue title for %s\n", n)
 		_, _, err := client.Issues.Edit(context.Background(), owner, repo, n, &github.IssueRequest{Title: &newi.Form.Title})
 		if err != nil {
 			return err
@@ -620,6 +625,7 @@ func (i *Issue) Clunk(name string, fid protocol.FID) error {
 	}
 
 	if newi.Form.State != i.Form.State {
+		log.Printf("Changing issue state for %s\n", n)
 		_, _, err := client.Issues.Edit(context.Background(), owner, repo, n, &github.IssueRequest{State: &newi.Form.State})
 		if err != nil {
 			return err
@@ -627,6 +633,7 @@ func (i *Issue) Clunk(name string, fid protocol.FID) error {
 	}
 
 	if !reflect.DeepEqual(newi.Form.Labels, i.Form.Labels) {
+		log.Printf("Changing labels for %s\n", n)
 		_, _, err := client.Issues.Edit(context.Background(), owner, repo, n, &github.IssueRequest{Labels: &newi.Form.Labels})
 		if err != nil {
 			return err
@@ -634,6 +641,7 @@ func (i *Issue) Clunk(name string, fid protocol.FID) error {
 	}
 
 	if newi.Form.Assignee != i.Form.Assignee {
+		log.Printf("Assigning issue %s\n", n)
 		_, _, err = client.Issues.Edit(context.Background(), owner, repo, n, &github.IssueRequest{Assignee: &newi.Form.Assignee})
 		if err != nil {
 			return err
@@ -646,6 +654,7 @@ func (i *Issue) Clunk(name string, fid protocol.FID) error {
 
 		// New comment
 		if len(i.Comments) <= idx && len(strings.TrimSpace(comment.Form.Body)) != 0 {
+			log.Printf("Creating a comment for issue %d\n", n)
 			gc, _, err := client.Issues.CreateComment(context.Background(), owner, repo, n, &github.IssueComment{Body: &comment.Form.Body})
 			if err != nil {
 				return err
@@ -653,6 +662,7 @@ func (i *Issue) Clunk(name string, fid protocol.FID) error {
 			i.Comments = append(i.Comments, Comment{Comment: gc})
 			i.Comments[idx].Form.Body = comment.Form.Body
 		} else if i.Comments[idx].Form.Body == "\n```\n\n```\n" && len(strings.TrimSpace(comment.Form.Body)) != 0 {
+			log.Printf("Creating a comment for issue %d\n", n)
 			gc, _, err := client.Issues.CreateComment(context.Background(), owner, repo, n, &github.IssueComment{Body: &comment.Form.Body})
 			if err != nil {
 				return err
@@ -661,6 +671,7 @@ func (i *Issue) Clunk(name string, fid protocol.FID) error {
 			i.Comments[idx].Form.Body = comment.Form.Body
 			// Edit existing comment
 		} else if i.Comments[idx].Form.Body != comment.Form.Body && i.Comments[idx].Form.Body != "\n```\n\n```\n" {
+			log.Printf("Editing comment for issue %d\n", n)
 			_, _, err := client.Issues.EditComment(context.Background(), owner, repo, *i.Comments[idx].Comment.ID, &github.IssueComment{Body: &comment.Form.Body})
 			if err != nil {
 				return err
@@ -698,9 +709,10 @@ func (ilh *IssuesListHandler) Open(name string, fid protocol.FID, mode protocol.
 	ilh.ih.mutex.Lock()
 	defer ilh.ih.mutex.Unlock()
 
-	ilh.ih.options.ListOptions = github.ListOptions{PerPage: 1}
+	ilh.ih.options.ListOptions = github.ListOptions{PerPage: 10}
 
 	for {
+		log.Printf("Listing issues for repo %s\n", repo)
 		i, resp, err := uncachedClient.Issues.ListByRepo(context.Background(), owner, repo, ilh.ih.options)
 		if err != nil {
 			return err
@@ -722,6 +734,7 @@ func (ilh *IssuesListHandler) Open(name string, fid protocol.FID, mode protocol.
 
 	for {
 		list.NewIssueNumber++
+		log.Printf("Finding new issue number for repo %s\n", repo)
 		_, _, err := uncachedClient.Issues.Get(context.Background(), owner, repo, list.NewIssueNumber)
 		if err != nil {
 			break

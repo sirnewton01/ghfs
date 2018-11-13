@@ -113,6 +113,7 @@ func (rh *ReposHandler) Read(name string, fid protocol.FID, offset int64, count 
 		options := github.ListOptions{PerPage: 10}
 		// Add following
 		for {
+			log.Printf("Listing following for %s\n", currentUser)
 			users, resp, err := client.Users.ListFollowing(context.Background(), currentUser, &options)
 
 			if err != nil {
@@ -154,9 +155,11 @@ func NewOwnerHandler(owner string) (int, error) {
 	idx := server.AddFileEntry(path.Join("/repos", owner), &OwnerHandler{dynamic.BasicDirHandler{server, nil}})
 
 	// Check if it is an organization
+	log.Printf("Checking whether owner %s is an organization\n", owner)
 	org, _, err := client.Organizations.Get(context.Background(), owner)
 	if err != nil {
 		// It could be a user
+		log.Printf("Checking whether owner %s is a user\n", owner)
 		user, _, err := client.Users.Get(context.Background(), owner)
 		if err != nil {
 			return -1, err
@@ -202,6 +205,7 @@ func (oh *OwnerHandler) refresh(owner string) error {
 	}
 
 	for {
+		log.Printf("Listing repositories owned by %s\n", owner)
 		repos, resp, err := client.Repositories.List(context.Background(), owner, &options)
 		if err != nil {
 			return err
@@ -270,7 +274,6 @@ func (uh *UserHandler) Open(name string, fid protocol.FID, mode protocol.Mode) e
 	username := path.Base(path.Dir(name))
 
 	log.Printf("Reading user %s\n", username)
-
 	u, _, err := client.Users.Get(context.Background(), username)
 	if err != nil {
 		return err
@@ -390,11 +393,13 @@ func (uh *UserHandler) Clunk(name string, fid protocol.FID) error {
 
 	if newuh.Form.Follow != uh.Form.Follow {
 		if newuh.Form.Follow {
+			log.Printf("Following %s\n", username)
 			_, err := client.Users.Follow(context.Background(), username)
 			if err != nil {
 				return err
 			}
 		} else {
+			log.Printf("Unfollowing %s\n", username)
 			_, err := client.Users.Unfollow(context.Background(), username)
 			if err != nil {
 				return err
@@ -613,6 +618,7 @@ func (roh *RepoOverviewHandler) Clunk(name string, fid protocol.FID) error {
 
 	if newroh.Form.Description != roh.Form.Description {
 		roh.Repository.Description = &newroh.Form.Description
+		log.Printf("Setting repository description for %s\n", repo)
 		_, _, err := client.Repositories.Edit(context.Background(), owner, repo, roh.Repository)
 		if err != nil {
 			return err
@@ -621,11 +627,13 @@ func (roh *RepoOverviewHandler) Clunk(name string, fid protocol.FID) error {
 
 	if newroh.Form.Starred != roh.Form.Starred {
 		if newroh.Form.Starred {
+			log.Printf("Starring repository %s\n", repo)
 			_, err := client.Activity.Star(context.Background(), owner, repo)
 			if err != nil {
 				return err
 			}
 		} else {
+			log.Printf("Unstarring repository %s\n", repo)
 			_, err := client.Activity.Unstar(context.Background(), owner, repo)
 			if err != nil {
 				return err
@@ -638,6 +646,7 @@ func (roh *RepoOverviewHandler) Clunk(name string, fid protocol.FID) error {
 	t := true
 
 	if newroh.Form.Notifications != roh.Form.Notifications {
+		log.Printf("Changing repository subscription for %s\n", repo)
 		if newroh.Form.Notifications == "not watching" {
 			subs.Subscribed = &f
 			subs.Ignored = &f
@@ -686,6 +695,7 @@ func (rrh *RepoReadmeHandler) Open(name string, fid protocol.FID, mode protocol.
 	rrh.mu.Lock()
 	defer rrh.mu.Unlock()
 
+	log.Printf("Getting project readme for %s\n", repo)
 	readme, _, err := client.Repositories.GetReadme(context.Background(), owner, repo, nil)
 	if err != nil {
 		return err
@@ -714,6 +724,7 @@ func (srh *StarredReposHandler) Open(name string, fid protocol.FID, mode protoco
 	srh.mu.Lock()
 	defer srh.mu.Unlock()
 
+	log.Printf("Retrieving the current user's starred repositories\n")
 	stars, _, err := client.Activity.ListStarred(context.Background(), currentUser, nil)
 	if err != nil {
 		return err
