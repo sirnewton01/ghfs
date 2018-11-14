@@ -73,11 +73,11 @@ func (b *BasicDirHandler) getDir(name string, max int64) ([]byte, error) {
 		}
 		dir.QID.Path = uint64(idx)
 
-		m := 0755
+		m := uint32(0755)
 		if dir.QID.Type&protocol.QTDIR != 0 {
 			m = m | protocol.DMDIR
 		}
-		dir.Mode = uint32(m)
+		dir.Mode = m
 		dir.Name = path.Base(match.Name)
 
 		protocol.Marshaldir(&b, dir)
