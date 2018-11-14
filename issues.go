@@ -609,7 +609,7 @@ func (i *Issue) Clunk(name string, fid protocol.FID) error {
 	// TODO collapse these individual edits into one
 
 	if newi.Form.Body != i.Form.Body {
-		log.Printf("Setting issue body for %s\n", n)
+		log.Printf("Setting issue body for %d\n", n)
 		_, _, err := client.Issues.Edit(context.Background(), owner, repo, n, &github.IssueRequest{Body: &newi.Form.Body})
 		if err != nil {
 			return err
@@ -617,7 +617,7 @@ func (i *Issue) Clunk(name string, fid protocol.FID) error {
 	}
 
 	if newi.Form.Title != i.Form.Title {
-		log.Printf("Setting issue title for %s\n", n)
+		log.Printf("Setting issue title for %d\n", n)
 		_, _, err := client.Issues.Edit(context.Background(), owner, repo, n, &github.IssueRequest{Title: &newi.Form.Title})
 		if err != nil {
 			return err
@@ -625,7 +625,7 @@ func (i *Issue) Clunk(name string, fid protocol.FID) error {
 	}
 
 	if newi.Form.State != i.Form.State {
-		log.Printf("Changing issue state for %s\n", n)
+		log.Printf("Changing issue state for %d\n", n)
 		_, _, err := client.Issues.Edit(context.Background(), owner, repo, n, &github.IssueRequest{State: &newi.Form.State})
 		if err != nil {
 			return err
@@ -633,7 +633,7 @@ func (i *Issue) Clunk(name string, fid protocol.FID) error {
 	}
 
 	if !reflect.DeepEqual(newi.Form.Labels, i.Form.Labels) {
-		log.Printf("Changing labels for %s\n", n)
+		log.Printf("Changing labels for %d\n", n)
 		_, _, err := client.Issues.Edit(context.Background(), owner, repo, n, &github.IssueRequest{Labels: &newi.Form.Labels})
 		if err != nil {
 			return err
@@ -641,7 +641,7 @@ func (i *Issue) Clunk(name string, fid protocol.FID) error {
 	}
 
 	if newi.Form.Assignee != i.Form.Assignee {
-		log.Printf("Assigning issue %s\n", n)
+		log.Printf("Assigning issue %d\n", n)
 		_, _, err = client.Issues.Edit(context.Background(), owner, repo, n, &github.IssueRequest{Assignee: &newi.Form.Assignee})
 		if err != nil {
 			return err
