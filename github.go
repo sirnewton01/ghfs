@@ -3,16 +3,17 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/google/go-github/github"
-	"github.com/gregjones/httpcache"
-	"github.com/sirnewton01/ghfs/dynamic"
-	"github.com/sirnewton01/ghfs/markform"
-	"golang.org/x/oauth2"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"strings"
+
+	"github.com/google/go-github/github"
+	"github.com/gregjones/httpcache"
+	"github.com/sirnewton01/ghfs/dynamic"
+	"github.com/sirnewton01/ghfs/markform"
+	"golang.org/x/oauth2"
 )
 
 var (
