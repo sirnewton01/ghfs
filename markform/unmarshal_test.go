@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/russross/blackfriday.v2"
+	"github.com/russross/blackfriday/v2"
 )
 
 func TestUnmarshalDocument(t *testing.T) {
@@ -88,7 +88,7 @@ Save this file to record any changes to the person record.
 Please ensure that the information is entered correctly. If you have any
 questions you can email the [support team](mailto:support@example.com).
 
-Description = 
+Description =
 ` + "```" + `
 Conscientious
 student

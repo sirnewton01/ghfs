@@ -4,17 +4,17 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/Harvey-OS/ninep/protocol"
-	"github.com/google/go-github/github"
-	"github.com/sirnewton01/ghfs/dynamic"
-	"github.com/sirnewton01/ghfs/markform"
 	"log"
 	"path"
 	"strings"
 	"sync"
 	"text/template"
 
-	"gopkg.in/russross/blackfriday.v2"
+	"github.com/Harvey-OS/ninep/protocol"
+	"github.com/google/go-github/github"
+	"github.com/russross/blackfriday/v2"
+	"github.com/sirnewton01/ghfs/dynamic"
+	"github.com/sirnewton01/ghfs/markform"
 )
 
 var (

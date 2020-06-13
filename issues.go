@@ -4,10 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/Harvey-OS/ninep/protocol"
-	"github.com/google/go-github/github"
-	"github.com/sirnewton01/ghfs/dynamic"
-	"github.com/sirnewton01/ghfs/markform"
 	"log"
 	"path"
 	"reflect"
@@ -17,7 +13,11 @@ import (
 	"text/template"
 	"time"
 
-	"gopkg.in/russross/blackfriday.v2"
+	"github.com/Harvey-OS/ninep/protocol"
+	"github.com/google/go-github/github"
+	"github.com/russross/blackfriday/v2"
+	"github.com/sirnewton01/ghfs/dynamic"
+	"github.com/sirnewton01/ghfs/markform"
 )
 
 var (
@@ -38,7 +38,7 @@ var (
 	commentMarkdown = template.Must(template.New("comment").Funcs(funcMap).Parse(
 		`## Comment
 {{if .Comment}}
-* User: [{{ .Comment.User.Login }}](../../../{{ .Comment.User.Login }}) 
+* User: [{{ .Comment.User.Login }}](../../../{{ .Comment.User.Login }})
 * CreatedAt: {{ .Comment.CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}
 {{end}}
 {{ markform .Form "Body" }}
